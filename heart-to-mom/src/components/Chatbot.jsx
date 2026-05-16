@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase.js'
 export default function Chatbot() {
     const { user } = useAuth()
     const [checkedInToday, setCheckedInToday] = useState(false)
+    const [reminderGiven, setReminderGiven] = useState(false)
     const [open, setOpen] = useState(false)
     const [messages, setMessages] = useState([
         { role: 'assistant', content: 'Hi! I\'m here to help with any health-related or pregnancy questions. What\'s on your mind?' }
@@ -32,6 +33,9 @@ export default function Chatbot() {
         setInput('')
         setLoading(true)
 
+        const shouldRemind = !checkedInToday && !reminderGiven
+        if (shouldRemind) setReminderGiven(true)
+
         const groqMessages = newMessages.filter((m, i) => !(m.role === 'assistant' && i === 0))
 
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -44,16 +48,15 @@ export default function Chatbot() {
                 model: 'llama-3.3-70b-versatile',
                 messages: [
                     {
-                        role: 'system', content: `You are a warm, caring, and deeply empathetic assistant for HeartToMom, a pregnancy health tracking app that concerns itself with womens' health, especially mothers and their increased risk of heart disease.
-You speak gently and kindly at all times — like a doctor who's an expert about pregnancy and maternal health and heart disease.
+                        role: 'system', content: `You are a concise, caring assistant for HeartToMom, a pregnancy and maternal heart health app.
+Be warm but brief — no filler phrases like "Of course!", "Great question!", or "I'm here for you!". Get straight to the point.
+Use plain language. If a response is more than 4 sentences, add spacing between paragraphs.
 
-The user has ${checkedInToday ? 'already completed' : 'NOT yet completed'} their daily check-in today.
-${!checkedInToday ? 'Gently remind them to complete their daily check-in before answering health questions — it only takes 90 seconds and helps personalize care' : 'They have completed their check-in, so answer their questions normally.'}
+${shouldRemind ? 'At the start of your response, add one short sentence reminding the user to complete their daily check-in if they haven\'t yet. Do not repeat this reminder again.' : ''}
 
-When a user describes symptoms, never downplay or dismiss them. Take every symptom seriously and acknowledge how the user is feeling before responding. Always validate their concern first, then provide helpful information.
-If symptoms sound serious (like heavy bleeding, severe headache, no fetal movement, chest pain, or sudden swelling), clearly and kindly encourage them to contact their healthcare provider or go to the ER immediately.
+Never downplay symptoms. Validate first, then inform. For serious symptoms (heavy bleeding, chest pain, severe headache, no fetal movement, sudden swelling), tell them to contact their provider or go to the ER immediately.
 
-Always be encouraging, never clinical or cold. You are here to support, not to diagnose.`
+You support, you do not diagnose.`
                     },
                     ...groqMessages
                 ],
@@ -84,7 +87,9 @@ Always be encouraging, never clinical or cold. You are here to support, not to d
                                 color: m.role === 'user' ? '#fff' : 'var(--ink)',
                                 border: m.role === 'user' ? 'none' : '1px solid #ede5e0',
                             }}>
-                                {m.content}
+                                {m.content.split('\n').map((line, j) => (
+                                    <span key={j}>{line}{j < m.content.split('\n').length - 1 && <br />}</span>
+                                ))}
                             </div>
                         ))}
                         {loading && <div style={{ fontSize: 13, color: 'var(--muted)', alignSelf: 'flex-start' }}>Typing…</div>}
