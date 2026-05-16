@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
+import { triggerRiskAssessment } from '../lib/useRiskAssessment.js'
 import './Onboarding.css'
 
 const STEPS = [
@@ -119,6 +120,14 @@ export default function Onboarding() {
         // "Save & finish later" — log + exit anyway so the user isn't trapped
         console.warn('Profile save failed but navigating anyway:', saveError)
       }
+
+      // When the profile is fully filled in, generate the first AI risk
+      // assessment so the dashboard has something to show immediately.
+      if (markComplete) {
+        const result = await triggerRiskAssessment('onboarding')
+        if (!result.ok) console.warn('Initial risk assessment failed:', result.error)
+      }
+
       navigate('/home')
     } catch (err) {
       setError(err.message ?? 'Could not save. Try again.')
@@ -212,7 +221,7 @@ export default function Onboarding() {
             disabled={submitting}
           >
             {submitting
-              ? 'Saving…'
+              ? (isLast ? 'Generating your risk report…' : 'Saving…')
               : isLast
                 ? 'Finish setup →'
                 : 'Continue →'}

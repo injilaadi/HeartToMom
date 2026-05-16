@@ -31,7 +31,7 @@ const RECOMMENDED_APPOINTMENTS = [
 export default function Home() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { profile, appointments, latestVital, latestCheckIn, loading } = useDashboardData()
+  const { profile, appointments, latestVital, latestCheckIn, latestAssessment, loading } = useDashboardData()
   const [profileModalDismissed, setProfileModalDismissed] = useState(false)
   const [localAppointments, setLocalAppointments] = useState([])
   const [appointmentModalOpen, setAppointmentModalOpen] = useState(false)
@@ -263,21 +263,24 @@ export default function Home() {
 
             <section className="card risk">
               <h2 className="card__title card__title--sm">Risk score</h2>
-              <p className={`risk__value risk__value--${latestCheckIn?.risk_score ?? 'none'}`}>
-                {latestCheckIn?.risk_score
-                  ? capitalize(latestCheckIn.risk_score)
+              <p className={`risk__value risk__value--${latestAssessment?.overall_risk ?? 'none'}`}>
+                {latestAssessment
+                  ? capitalize(latestAssessment.overall_risk)
                   : 'No data'}
-                {latestCheckIn?.risk_score && (
-                  <span className="risk__trend"> ↓ from last week</span>
+                {latestAssessment && (
+                  <span className="risk__trend"> · {latestAssessment.overall_score}/100</span>
                 )}
               </p>
-              <div className={`risk__bar risk__bar--${latestCheckIn?.risk_score ?? 'none'}`}>
-                <div className="risk__bar-fill" />
+              <div className={`risk__bar risk__bar--${latestAssessment?.overall_risk ?? 'none'}`}>
+                <div
+                  className="risk__bar-fill"
+                  style={latestAssessment ? { width: `${latestAssessment.overall_score}%` } : undefined}
+                />
               </div>
               <p className="risk__note">
-                {latestCheckIn
-                  ? 'Based on yesterday’s questionnaire and 7-day vitals trend.'
-                  : 'Complete a daily check-in to see your risk trend.'}
+                {latestAssessment
+                  ? (latestAssessment.summary ?? 'AI-generated assessment based on your latest data.')
+                  : 'Complete your health profile or a daily check-in to generate your first assessment.'}
               </p>
             </section>
 

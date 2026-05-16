@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import NavBar from '../components/NavBar.jsx'
 import RiskScoreCard from '../components/RiskScoreCard.jsx'
+import RiskAssessment from '../components/RiskAssessment.jsx'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
+import { triggerRiskAssessment } from '../lib/useRiskAssessment.js'
 import './pages-common.css'
 import './TrackHealth.css'
 
@@ -17,19 +19,21 @@ const QUESTIONS = [
 export default function TrackHealth() {
   const { user } = useAuth()
   const [profile, setProfile] = useState(null)
-  const [latestCheckIn, setLatestCheckIn] = useState(null)
+  const [latestAssessment, setLatestAssessment] = useState(null)
   const [answers, setAnswers] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [assessmentSignal, setAssessmentSignal] = useState(0)
 
   useEffect(() => {
     if (!user) return
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
       .then(({ data }) => setProfile(data ?? null))
-    supabase.from('check_ins').select('*').eq('user_id', user.id)
+    supabase.from('risk_assessments').select('*').eq('user_id', user.id)
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
-      .then(({ data }) => setLatestCheckIn(data ?? null))
-  }, [user])
+      .then(({ data }) => setLatestAssessment(data ?? null))
+  }, [user, assessmentSignal])
 
   const allAnswered = QUESTIONS.every((q) => answers[q.id])
 
@@ -42,9 +46,19 @@ export default function TrackHealth() {
         answers,
         risk_score: risk,
       })
+
+      // Kick off the AI assessment based on the new check-in.
+      setAnalyzing(true)
+      const result = await triggerRiskAssessment('check_in')
+      setAnalyzing(false)
+
+      if (!result.ok) console.warn('Risk assessment failed:', result.error)
+
+      // Refresh the donut + the RiskAssessment component
+      setAssessmentSignal((n) => n + 1)
       setSubmitted(true)
-    } catch {
-      // swallow for hackathon — could surface a toast
+    } catch (err) {
+      console.warn('Check-in submit failed:', err)
     } finally {
       setSubmitting(false)
     }
@@ -64,7 +78,10 @@ export default function TrackHealth() {
         </header>
 
         {/* Risk score breakdown — donut + factor bars */}
-        <RiskScoreCard latestCheckIn={latestCheckIn} />
+        <RiskScoreCard assessment={latestAssessment} />
+
+        {/* AI risk assessment — Gemini analysis across conditions */}
+        <RiskAssessment refreshSignal={assessmentSignal} />
 
         <div className="th__grid">
           {/* Daily questionnaire */}
@@ -78,7 +95,7 @@ export default function TrackHealth() {
               <div className="th__done">
                 <p className="th__done-emoji" aria-hidden>✓</p>
                 <p className="th__done-title">Thanks — check-in saved.</p>
-                <p className="th__done-note">Your risk score will update on the dashboard.</p>
+                <p className="th__done-note">Your risk assessment has been updated above.</p>
               </div>
             ) : (
               <>
@@ -104,10 +121,14 @@ export default function TrackHealth() {
 
                 <button
                   className="btn-primary th__submit"
-                  disabled={!allAnswered || submitting}
+                  disabled={!allAnswered || submitting || analyzing}
                   onClick={submit}
                 >
-                  {submitting ? 'Saving…' : 'Submit check-in'}
+                  {analyzing
+                    ? 'Analyzing your data…'
+                    : submitting
+                      ? 'Saving…'
+                      : 'Submit check-in'}
                 </button>
               </>
             )}
