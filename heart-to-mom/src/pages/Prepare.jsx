@@ -56,15 +56,51 @@ const POSTS = [
   },
 ]
 
+const CHECKLISTS = {
+  first: [
+    'Confirm first prenatal appointment',
+    'Start or review prenatal vitamins',
+    'Save urgent symptoms to watch for',
+  ],
+  second: [
+    'Schedule anatomy scan',
+    'Review blood pressure baseline',
+    'Choose a birth support person',
+  ],
+  third: [
+    'Pack hospital bag',
+    'Install car seat',
+    'Write postpartum support plan',
+  ],
+  general: [
+    'Update emergency contacts',
+    'Add provider phone number',
+    'Prepare questions for next appointment',
+  ],
+}
+
 export default function Prepare() {
   const { user } = useAuth()
   const [profile, setProfile] = useState(null)
+  const [checked, setChecked] = useState([])
 
   useEffect(() => {
     if (!user) return
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
       .then(({ data }) => setProfile(data ?? null))
   }, [user])
+
+  const trimester = getTrimester(profile?.due_date)
+  const checklist = CHECKLISTS[trimester.key] ?? CHECKLISTS.general
+  const completed = checked.length
+
+  const toggleChecklist = (item) => {
+    setChecked((current) => (
+      current.includes(item)
+        ? current.filter((value) => value !== item)
+        : [...current, item]
+    ))
+  }
 
   return (
     <div className="page">
@@ -75,9 +111,34 @@ export default function Prepare() {
           <p className="page__eyebrow">RESOURCES</p>
           <h1 className="page__title">Prepare for motherhood</h1>
           <p className="page__lede">
-            Short reads picked for your trimester. Tap any card to read.
+            Short reads picked for your trimester, plus a focused checklist for what to do next.
           </p>
         </header>
+
+        <section className="pr__planner">
+          <div className="pr__planner-copy">
+            <p className="pr__kicker">{trimester.label}</p>
+            <h2>{trimester.heading}</h2>
+            <p>{trimester.copy}</p>
+          </div>
+
+          <div className="pr__checklist">
+            <div className="pr__checklist-head">
+              <span>Next steps</span>
+              <span>{completed}/{checklist.length}</span>
+            </div>
+            {checklist.map((item) => (
+              <button
+                key={item}
+                className={`pr__check ${checked.includes(item) ? 'is-done' : ''}`}
+                onClick={() => toggleChecklist(item)}
+              >
+                <span aria-hidden>{checked.includes(item) ? '✓' : ''}</span>
+                {item}
+              </button>
+            ))}
+          </div>
+        </section>
 
         <div className="pr__grid">
           {POSTS.map((p) => (
@@ -100,4 +161,45 @@ export default function Prepare() {
       </main>
     </div>
   )
+}
+
+function getTrimester(dueDate) {
+  if (!dueDate) {
+    return {
+      key: 'general',
+      label: 'PERSONALIZED PREP',
+      heading: 'Start with the essentials',
+      copy: 'Add your due date in your health profile to unlock trimester-specific planning.',
+    }
+  }
+
+  const due = new Date(dueDate)
+  const now = new Date()
+  const weeksToGo = Math.max(0, Math.ceil((due - now) / (7 * 24 * 60 * 60 * 1000)))
+  const week = Math.max(1, Math.min(40, 40 - weeksToGo))
+
+  if (week <= 13) {
+    return {
+      key: 'first',
+      label: `WEEK ${week} · FIRST TRIMESTER`,
+      heading: 'Build your care foundation',
+      copy: 'Focus on appointments, baseline health data, and early symptom awareness.',
+    }
+  }
+
+  if (week <= 27) {
+    return {
+      key: 'second',
+      label: `WEEK ${week} · SECOND TRIMESTER`,
+      heading: 'Plan the support system',
+      copy: 'This is a good time to organize scans, daily routines, and birth preferences.',
+    }
+  }
+
+  return {
+    key: 'third',
+    label: `WEEK ${week} · THIRD TRIMESTER`,
+    heading: 'Prepare for delivery and recovery',
+    copy: 'Prioritize hospital logistics, postpartum support, and warning-sign readiness.',
+  }
 }
