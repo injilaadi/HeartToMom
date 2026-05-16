@@ -45,6 +45,12 @@ export default function Home() {
 
   const due = profile?.due_date ? new Date(profile.due_date) : null
   const pregnancy = calculatePregnancy(due)
+  const wearableProvider = profile?.wearable_provider
+  const syncLabel = latestVital
+    ? `Last reading ${timeAgo(latestVital.recorded_at)}`
+    : wearableProvider
+      ? 'Waiting for first reading'
+      : 'Not connected'
 
   return (
     <div className="page">
@@ -152,6 +158,19 @@ export default function Home() {
                   unit={latestVital ? 'bpm' : ''}
                 />
               </div>
+            </section>
+
+            <section className="card wearable-status">
+              <div>
+                <p className="card__eyebrow">WEARABLE SYNC</p>
+                <h2 className="wearable-status__title">
+                  {wearableProvider || 'No device connected'}
+                </h2>
+                <p className="wearable-status__meta">{syncLabel}</p>
+              </div>
+              <button className="wearable-status__btn" onClick={() => navigate('/sync-wearable')}>
+                {wearableProvider ? 'Manage sync' : 'Connect device'}
+              </button>
             </section>
 
             <section className="card risk">

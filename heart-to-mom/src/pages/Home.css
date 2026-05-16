@@ -333,6 +333,41 @@
   margin-left: 2px;
 }
 
+/* =========================== Wearable status ====================== */
+.wearable-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  background: #fff;
+}
+
+.wearable-status__title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.wearable-status__meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.wearable-status__btn {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--rose-500);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 120ms ease;
+}
+
+.wearable-status__btn:hover { background: var(--rose-600); }
+
 /* =========================== Risk card ============================ */
 .risk__value {
   margin: 8px 0;
@@ -421,6 +456,8 @@
   .dash__title { font-size: 26px; }
   .due__date { font-size: 22px; }
   .vitals__grid { grid-template-columns: 1fr; }
+  .wearable-status { flex-direction: column; align-items: flex-start; }
+  .wearable-status__btn { width: 100%; }
   .cal__day { width: 32px; height: 32px; font-size: 13px; }
 }
 
