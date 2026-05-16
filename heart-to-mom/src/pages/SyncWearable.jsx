@@ -14,6 +14,10 @@ const PROVIDERS = [
     cadence: 'Every 15 min',
     glyph: 'watch',
     syncs: ['heart rate', 'sleep', 'steps', 'blood pressure'],
+    bluetooth: {
+      namePrefixes: ['Apple Watch', 'Apple'],
+      services: ['heart_rate', 'battery_service', 'device_information'],
+    },
   },
   {
     id: 'fitbit',
@@ -23,6 +27,10 @@ const PROVIDERS = [
     cadence: 'Hourly',
     glyph: 'band',
     syncs: ['heart rate', 'sleep stages', 'activity', 'stress'],
+    bluetooth: {
+      namePrefixes: ['Fitbit', 'Charge', 'Sense', 'Versa', 'Inspire'],
+      services: ['heart_rate', 'battery_service', 'device_information'],
+    },
   },
   {
     id: 'oura',
@@ -32,6 +40,10 @@ const PROVIDERS = [
     cadence: 'Daily summary',
     glyph: 'ring',
     syncs: ['temperature', 'HRV', 'sleep', 'readiness'],
+    bluetooth: {
+      namePrefixes: ['Oura', 'oura'],
+      services: ['battery_service', 'device_information'],
+    },
   },
   {
     id: 'manual',
@@ -58,6 +70,8 @@ export default function SyncWearable() {
   const [flowProvider, setFlowProvider] = useState(null)
   const [flowStep, setFlowStep] = useState('permissions')
   const [syncProgress, setSyncProgress] = useState(0)
+  const [pairedDeviceName, setPairedDeviceName] = useState('')
+  const [flowError, setFlowError] = useState(null)
   const [error, setError] = useState('')
 
   const connected = profile?.wearable_provider ?? ''
@@ -114,6 +128,8 @@ export default function SyncWearable() {
 
   const beginConnect = (provider) => {
     setError('')
+    setFlowError(null)
+    setPairedDeviceName('')
     setSyncProgress(0)
     if (provider.id === 'manual') {
       saveConnection(provider.name)
@@ -127,12 +143,24 @@ export default function SyncWearable() {
     setFlowProvider(null)
     setFlowStep('permissions')
     setSyncProgress(0)
+    setPairedDeviceName('')
+    setFlowError(null)
   }
 
-  const authorizeFlow = () => {
+  const authorizeFlow = async () => {
     setError('')
-    setSyncProgress(12)
-    setFlowStep('syncing')
+    setFlowError(null)
+    setFlowStep('pairing')
+
+    try {
+      const device = await requestBluetoothDevice(flowProvider)
+      setPairedDeviceName(device.name || flowProvider.name)
+      setSyncProgress(12)
+      setFlowStep('syncing')
+    } catch (err) {
+      setFlowError(formatBluetoothError(err, flowProvider))
+      setFlowStep('error')
+    }
   }
 
   return (
@@ -240,8 +268,11 @@ export default function SyncWearable() {
           provider={flowProvider}
           step={flowStep}
           progress={syncProgress}
+          deviceName={pairedDeviceName}
+          error={flowError}
           connecting={connecting === flowProvider.name}
           onAuthorize={authorizeFlow}
+          onRetry={authorizeFlow}
           onClose={closeFlow}
         />
       )}
@@ -249,18 +280,105 @@ export default function SyncWearable() {
   )
 }
 
-function ConnectFlow({ provider, step, progress, connecting, onAuthorize, onClose }) {
+async function requestBluetoothDevice(provider) {
+  if (!navigator.bluetooth) {
+    throw new BluetoothConnectError(
+      'unsupported',
+      'Bluetooth is not available in this browser.',
+      'Use Chrome or Microsoft Edge on a Bluetooth-enabled laptop, then try again.'
+    )
+  }
+
+  const bluetooth = provider.bluetooth
+  if (!bluetooth) {
+    throw new BluetoothConnectError(
+      'unsupported-provider',
+      `${provider.name} does not support direct Bluetooth pairing here.`,
+      'Use manual entry for now, or choose another wearable.'
+    )
+  }
+
+  const device = await navigator.bluetooth.requestDevice({
+    filters: bluetooth.namePrefixes.map((namePrefix) => ({ namePrefix })),
+    optionalServices: bluetooth.services,
+  })
+
+  if (!device.gatt) {
+    throw new BluetoothConnectError(
+      'gatt-unavailable',
+      'This device was found, but it does not expose a Bluetooth health connection.',
+      'Make sure the device is awake, nearby, and not already connected to another app.'
+    )
+  }
+
+  await device.gatt.connect()
+  return device
+}
+
+function formatBluetoothError(err, provider) {
+  if (err instanceof BluetoothConnectError) return err
+
+  if (err?.name === 'NotFoundError') {
+    return new BluetoothConnectError(
+      'not-found',
+      `${provider.name} was not selected.`,
+      'Keep the wearable nearby, make sure Bluetooth is on, then try pairing again.'
+    )
+  }
+
+  if (err?.name === 'NotSupportedError') {
+    return new BluetoothConnectError(
+      'not-supported',
+      `${provider.name} cannot be paired through this browser.`,
+      'Try Chrome or Edge on desktop, or use manual entry for this demo.'
+    )
+  }
+
+  if (err?.name === 'SecurityError') {
+    return new BluetoothConnectError(
+      'blocked',
+      'Bluetooth permission is blocked for this page.',
+      'Allow Bluetooth access in your browser settings, then retry.'
+    )
+  }
+
+  if (err?.name === 'NetworkError') {
+    return new BluetoothConnectError(
+      'connection-failed',
+      'The device was found, but the Bluetooth connection failed.',
+      'Move it closer, wake the screen, and make sure it is not connected somewhere else.'
+    )
+  }
+
+  return new BluetoothConnectError(
+    'unknown',
+    `Could not connect to ${provider.name}.`,
+    err?.message || 'Please check Bluetooth and try again.'
+  )
+}
+
+class BluetoothConnectError extends Error {
+  constructor(code, title, message) {
+    super(message)
+    this.code = code
+    this.title = title
+  }
+}
+
+function ConnectFlow({ provider, step, progress, deviceName, error, connecting, onAuthorize, onRetry, onClose }) {
   const isDone = step === 'done'
+  const isPairing = step === 'pairing'
   const isSyncing = step === 'syncing'
+  const isBusy = isPairing || isSyncing || connecting
 
   return (
     <div className="sw-flow" role="dialog" aria-modal="true" aria-labelledby="sw-flow-title">
-      <div className="sw-flow__backdrop" onClick={isSyncing ? undefined : onClose} />
+      <div className="sw-flow__backdrop" onClick={isBusy ? undefined : onClose} />
       <section className="sw-flow__card">
         <button
           className="sw-flow__close"
           onClick={onClose}
-          disabled={isSyncing || connecting}
+          disabled={isBusy}
           aria-label="Close connect flow"
         >
           ×
@@ -269,14 +387,16 @@ function ConnectFlow({ provider, step, progress, connecting, onAuthorize, onClos
         <div className="sw-flow__brand">
           <span className="sw-flow__device" aria-hidden><ProviderIcon name={provider.glyph} /></span>
           <div>
-            <p className="sw-flow__kicker">{isDone ? 'CONNECTED' : 'CONNECT DEVICE'}</p>
-            <h2 id="sw-flow-title">{isDone ? `${provider.name} is ready` : `Connect ${provider.name}`}</h2>
+            <p className="sw-flow__kicker">{isDone ? 'CONNECTED' : step === 'error' ? 'CONNECTION ISSUE' : 'CONNECT DEVICE'}</p>
+            <h2 id="sw-flow-title">
+              {isDone ? `${provider.name} is ready` : step === 'error' ? `Could not connect ${provider.name}` : `Connect ${provider.name}`}
+            </h2>
           </div>
         </div>
 
         <div className="sw-flow__steps" aria-label="Connection progress">
-          {['permissions', 'syncing', 'done'].map((item, index) => {
-            const activeIndex = isDone ? 2 : isSyncing ? 1 : 0
+          {['permissions', 'pairing', 'syncing', 'done'].map((item, index) => {
+            const activeIndex = isDone ? 3 : isSyncing ? 2 : isPairing ? 1 : 0
             return (
               <span
                 key={item}
@@ -293,7 +413,7 @@ function ConnectFlow({ provider, step, progress, connecting, onAuthorize, onClos
         {step === 'permissions' && (
           <>
             <p className="sw-flow__lede">
-              Review the signals HeartToMom will request from {provider.name}. You can disconnect or switch devices later.
+              Review the signals HeartToMom will request from {provider.name}. Your browser will ask you to choose a nearby Bluetooth device next.
             </p>
 
             <div className="sw-flow__permission-grid">
@@ -313,16 +433,26 @@ function ConnectFlow({ provider, step, progress, connecting, onAuthorize, onClos
             <div className="sw-flow__actions">
               <button className="sw-flow__secondary" onClick={onClose}>Cancel</button>
               <button className="sw-flow__primary" onClick={onAuthorize}>
-                Authorize sync
+                Pair with Bluetooth
               </button>
             </div>
           </>
         )}
 
+        {isPairing && (
+          <div className="sw-flow__syncing">
+            <div className="sw-flow__pulse" aria-hidden><ProviderIcon name={provider.glyph} /></div>
+            <p className="sw-flow__sync-title">Waiting for Bluetooth pairing</p>
+            <p className="sw-flow__sync-copy">
+              Select your {provider.name} in the browser pairing window. Keep the device awake and nearby.
+            </p>
+          </div>
+        )}
+
         {isSyncing && (
           <div className="sw-flow__syncing">
             <div className="sw-flow__pulse" aria-hidden><ProviderIcon name={provider.glyph} /></div>
-            <p className="sw-flow__sync-title">Securely syncing {provider.name}</p>
+            <p className="sw-flow__sync-title">Securely syncing {deviceName || provider.name}</p>
             <p className="sw-flow__sync-copy">Checking permissions, reading recent signals, and preparing your dashboard.</p>
             <div className="sw-flow__progress" aria-label={`${progress}% complete`}>
               <span style={{ width: `${progress}%` }} />
@@ -331,12 +461,26 @@ function ConnectFlow({ provider, step, progress, connecting, onAuthorize, onClos
           </div>
         )}
 
+        {step === 'error' && (
+          <div className="sw-flow__error">
+            <span className="sw-flow__error-mark" aria-hidden>!</span>
+            <p className="sw-flow__error-title">{error?.title || 'Connection failed'}</p>
+            <p className="sw-flow__error-copy">
+              {error?.message || 'Check Bluetooth permissions and try again.'}
+            </p>
+            <div className="sw-flow__actions sw-flow__actions--center">
+              <button className="sw-flow__secondary" onClick={onClose}>Close</button>
+              <button className="sw-flow__primary" onClick={onRetry}>Try again</button>
+            </div>
+          </div>
+        )}
+
         {isDone && (
           <div className="sw-flow__done">
             <span className="sw-flow__done-mark" aria-hidden>✓</span>
             <p className="sw-flow__done-title">Connection saved</p>
             <p className="sw-flow__done-copy">
-              {provider.name} will now appear as your connected wearable. New vitals will show on the dashboard when available.
+              {deviceName || provider.name} will now appear as your connected wearable. New vitals will show on the dashboard when available.
             </p>
             <button className="sw-flow__primary" onClick={onClose}>Done</button>
           </div>

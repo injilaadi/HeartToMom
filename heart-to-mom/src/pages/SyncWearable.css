@@ -356,7 +356,7 @@
 
 .sw-flow__steps {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin: 22px 0;
 }
@@ -464,7 +464,8 @@
 }
 
 .sw-flow__syncing,
-.sw-flow__done {
+.sw-flow__done,
+.sw-flow__error {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -485,7 +486,8 @@
 }
 
 .sw-flow__sync-title,
-.sw-flow__done-title {
+.sw-flow__done-title,
+.sw-flow__error-title {
   margin: 18px 0 4px;
   color: var(--ink);
   font-size: 18px;
@@ -493,7 +495,8 @@
 }
 
 .sw-flow__sync-copy,
-.sw-flow__done-copy {
+.sw-flow__done-copy,
+.sw-flow__error-copy {
   margin: 0;
   max-width: 360px;
   color: var(--muted);
@@ -537,7 +540,24 @@
   font-weight: 900;
 }
 
+.sw-flow__error-mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #f7e1e3;
+  color: #7c3a3e;
+  font-size: 30px;
+  font-weight: 900;
+}
+
 .sw-flow__done .sw-flow__primary {
+  margin-top: 22px;
+}
+
+.sw-flow__actions--center {
+  justify-content: center;
   margin-top: 22px;
 }
 
