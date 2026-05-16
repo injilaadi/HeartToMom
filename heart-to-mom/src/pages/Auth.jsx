@@ -36,7 +36,7 @@ export default function Auth() {
         const { data, error } = await signUp(email, password, { full_name: name })
         if (error) throw error
         // If email confirmations are on in Supabase, session will be null until the user confirms.
-        if (data.session) navigate('/home')
+        if (data.session) navigate('/onboarding')
         else setInfo('Check your email to confirm your account, then log in.')
       }
     } catch (err) {

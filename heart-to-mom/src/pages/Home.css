@@ -1,3 +1,4 @@
+/* =========================== Page chrome =========================== */
 .home {
   min-height: 100vh;
   background: var(--cream-50);
@@ -9,7 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 40px;
+  padding: 16px 40px;
   border-bottom: 1px solid var(--line);
   background: #fff;
 }
@@ -18,14 +19,14 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--ink);
 }
 
 .home__brand-mark {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--rose-200);
   color: var(--rose-500);
@@ -49,50 +50,398 @@
   color: var(--ink);
 }
 
-.home__main {
+/* =========================== Dashboard ============================ */
+.dash {
   flex: 1;
-  max-width: 720px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 64px 40px;
-  text-align: left;
+  padding: 40px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.home__greeting {
-  font-size: 16px;
+.dash__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.dash__greeting {
+  margin: 0 0 4px;
   color: var(--muted);
-  margin: 0 0 6px;
+  font-size: 16px;
 }
 
-.home__title {
-  font-size: 36px;
+.dash__title {
+  margin: 0;
+  font-size: 32px;
   font-weight: 700;
   color: var(--ink);
-  margin: 0 0 16px;
   letter-spacing: -0.4px;
 }
 
-.home__lede {
-  font-size: 17px;
-  line-height: 1.55;
-  color: var(--ink-2);
-  margin: 0 0 40px;
+/* =========================== Pills ================================ */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.home__placeholder {
-  border: 1px dashed var(--line-2);
+.pill__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+
+.pill--ok        { background: #e6efdf; color: #4a6b3f; }
+.pill--required  { background: #f4d8da; color: #7c3a3e; }
+.pill--suggested { background: #e2ece1; color: #4a6b46; }
+
+/* =========================== Card primitive ======================= */
+.card {
   background: #fff;
-  border-radius: 16px;
-  padding: 64px 24px;
-  text-align: center;
+  border-radius: 18px;
+  padding: 24px 28px;
+  box-shadow: var(--shadow-card);
+}
+
+.card__eyebrow {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
-  font-size: 16px;
 }
 
-.home__placeholder span {
-  font-size: 36px;
-  display: block;
-  margin-bottom: 12px;
+.card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-.home__placeholder p { margin: 0; }
+.card__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.card__title--sm { font-size: 17px; }
+
+.card__sub { color: var(--muted); font-size: 14px; }
+
+/* =========================== Due-date card ======================== */
+.due {
+  background: #fff;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 8px 24px;
+  align-items: start;
+}
+
+.due__date {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+}
+
+.due__right { text-align: right; }
+.due__weeks { margin: 0; color: var(--muted); font-size: 14px; }
+.due__pct   { margin: 0; color: var(--rose-500); font-size: 18px; font-weight: 600; }
+
+.track {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+}
+
+.track__bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--rose-100);
+}
+
+.track__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--rose-300);
+  transition: width 240ms ease;
+}
+
+.track__tick {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 1px;
+}
+
+.track__dot {
+  position: absolute;
+  top: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--rose-500);
+  box-shadow: 0 0 0 3px #fff;
+}
+
+.track__labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* =========================== Two-column grid ====================== */
+.dash__grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.dash__right {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* =========================== Calendar ============================= */
+.cal { margin-bottom: 20px; }
+
+.cal__head,
+.cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px 0;
+}
+
+.cal__head {
+  margin-bottom: 8px;
+  color: var(--muted-2);
+  font-size: 13px;
+  text-align: center;
+}
+
+.cal__day {
+  height: 36px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  color: var(--ink);
+  border-radius: 999px;
+  margin: 2px auto;
+  width: 36px;
+}
+
+.cal__day--muted { color: var(--muted-2); opacity: 0.55; }
+
+.cal__day--required {
+  background: var(--rose-500);
+  color: #fff;
+  font-weight: 600;
+}
+
+.cal__day--normal {
+  background: var(--rose-400);
+  color: #fff;
+  font-weight: 600;
+}
+
+.cal__day--suggested {
+  background: var(--rose-200);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* =========================== Appointment list ===================== */
+.appt-list {
+  list-style: none;
+  margin: 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+
+.appt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.appt:last-child { border-bottom: none; }
+
+.appt__bar {
+  width: 4px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--rose-300);
+}
+.appt--required  .appt__bar { background: var(--rose-500); }
+.appt--suggested .appt__bar { background: #8aa37e; }
+
+.appt__body { flex: 1; }
+.appt__title { margin: 0; font-weight: 600; color: var(--ink); }
+.appt__meta  { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+.appt-list__empty {
+  padding: 24px 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* =========================== Vitals card ========================== */
+.vitals__sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.vitals__sync-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #8aa37e;
+}
+
+.vitals__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stat__label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stat__value {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.stat__unit {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+/* =========================== Risk card ============================ */
+.risk__value {
+  margin: 8px 0;
+  font-size: 34px;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.risk__value--low      { color: #4a6b3f; }
+.risk__value--moderate { color: #a07b2e; }
+.risk__value--high     { color: #8a2b2b; }
+.risk__value--none     { color: var(--muted); font-size: 22px; }
+
+.risk__trend {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.risk__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--cream-200);
+  overflow: hidden;
+  margin: 8px 0 16px;
+}
+
+.risk__bar-fill {
+  height: 100%;
+  width: 25%;
+  background: #8aa37e;
+  border-radius: 999px;
+  transition: width 240ms ease;
+}
+
+.risk__bar--moderate .risk__bar-fill { width: 60%; background: #c9a35c; }
+.risk__bar--high     .risk__bar-fill { width: 90%; background: #b66565; }
+.risk__bar--none     .risk__bar-fill { width: 0%; }
+
+.risk__note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* =========================== Check-in card ======================== */
+.checkin {
+  background: var(--rose-200);
+  color: var(--ink);
+}
+.checkin .card__title { color: var(--ink); }
+
+.checkin__sub {
+  margin: 4px 0 16px;
+  color: var(--ink-2);
+  opacity: 0.85;
+  font-size: 14px;
+}
+
+.checkin__btn {
+  background: var(--rose-500);
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: background 120ms ease;
+}
+.checkin__btn:hover { background: var(--rose-600); }
+
+/* =========================== Responsive =========================== */
+@media (max-width: 960px) {
+  .dash { padding: 24px 20px; }
+  .dash__grid { grid-template-columns: 1fr; }
+  .dash__head { flex-direction: column; align-items: flex-start; }
+  .due { grid-template-columns: 1fr; }
+  .due__right { text-align: left; }
+}
+
+@media (max-width: 560px) {
+  .home__nav { padding: 14px 20px; }
+  .dash__title { font-size: 26px; }
+  .due__date { font-size: 22px; }
+  .vitals__grid { grid-template-columns: 1fr; }
+  .cal__day { width: 32px; height: 32px; font-size: 13px; }
+}

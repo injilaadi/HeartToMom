@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import Auth from './pages/Auth.jsx'
 import Home from './pages/Home.jsx'
+import Onboarding from './pages/Onboarding.jsx'
 import { AuthProvider } from './lib/AuthContext.jsx'
 import ProtectedRoute from './lib/ProtectedRoute.jsx'
 
@@ -14,6 +15,14 @@ createRoot(document.getElementById('root')).render(
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Auth />} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <Onboarding />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/home"
             element={
