@@ -364,7 +364,7 @@ async function requestBluetoothDevice(provider) {
   }
 
   const device = await navigator.bluetooth.requestDevice({
-    filters: bluetooth.namePrefixes.map((namePrefix) => ({ namePrefix })),
+    acceptAllDevices: true,
     optionalServices: bluetooth.services,
   })
 
@@ -603,7 +603,7 @@ function ConnectFlow({
             <p className="sw-flow__done-copy">
               {isManualDone
                 ? 'Your latest blood pressure and heart rate are ready for the dashboard.'
-                : `${deviceName || provider.name} will now appear as your connected wearable. A fresh sample vital was imported for your dashboard.`}
+                : `${deviceName || provider.name} is connected through ${provider.name}. A fresh sample vital was imported for your dashboard.`}
             </p>
             <button className="sw-flow__primary" onClick={onClose}>Done</button>
           </div>
