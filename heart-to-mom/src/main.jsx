@@ -5,6 +5,9 @@ import './index.css'
 import Auth from './pages/Auth.jsx'
 import Home from './pages/Home.jsx'
 import Onboarding from './pages/Onboarding.jsx'
+import TrackHealth from './pages/TrackHealth.jsx'
+import SyncWearable from './pages/SyncWearable.jsx'
+import Prepare from './pages/Prepare.jsx'
 import { AuthProvider } from './lib/AuthContext.jsx'
 import ProtectedRoute from './lib/ProtectedRoute.jsx'
 
@@ -28,6 +31,30 @@ createRoot(document.getElementById('root')).render(
             element={
               <ProtectedRoute>
                 <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/track-health"
+            element={
+              <ProtectedRoute>
+                <TrackHealth />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sync-wearable"
+            element={
+              <ProtectedRoute>
+                <SyncWearable />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/prepare"
+            element={
+              <ProtectedRoute>
+                <Prepare />
               </ProtectedRoute>
             }
           />

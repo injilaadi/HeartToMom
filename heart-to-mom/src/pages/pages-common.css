@@ -1,0 +1,53 @@
+/* Shared shell for top-level pages that use NavBar */
+.page {
+  min-height: 100vh;
+  background: var(--cream-50);
+  display: flex;
+  flex-direction: column;
+}
+
+.page__main {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.page__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.page__eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--rose-500);
+}
+
+.page__title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.4px;
+}
+
+.page__lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.5;
+  max-width: 640px;
+}
+
+@media (max-width: 720px) {
+  .page__main { padding: 24px 20px; }
+  .page__title { font-size: 26px; }
+}

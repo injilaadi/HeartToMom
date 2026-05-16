@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { useDashboardData } from '../lib/useDashboardData.js'
+import NavBar from '../components/NavBar.jsx'
+import './pages-common.css'
 import './Home.css'
 
 const TOTAL_WEEKS = 40
@@ -16,15 +18,22 @@ const WEEKDAYS = ['S','M','T','W','T','F','S']
 
 export default function Home() {
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const { profile, appointments, latestVital, latestCheckIn, loading } = useDashboardData()
+  const [profileModalDismissed, setProfileModalDismissed] = useState(false)
 
-  // Send users who haven't finished the health profile back to onboarding
+  // Show the "finish your health profile" modal whenever the user
+  // hasn't completed onboarding (incl. when their profile row is missing entirely).
+  const showProfileModal =
+    !loading
+    && !!user
+    && !profile?.onboarding_completed
+    && !profileModalDismissed
+
+  // Reset dismissal whenever the profile changes (e.g. user just completed it)
   useEffect(() => {
-    if (!loading && profile && profile.onboarding_completed === false) {
-      navigate('/onboarding', { replace: true })
-    }
-  }, [loading, profile, navigate])
+    if (profile?.onboarding_completed) setProfileModalDismissed(false)
+  }, [profile?.onboarding_completed])
 
   const firstName =
     profile?.full_name?.split(' ')[0] ??
@@ -37,22 +46,16 @@ export default function Home() {
   const due = profile?.due_date ? new Date(profile.due_date) : null
   const pregnancy = calculatePregnancy(due)
 
-  const handleLogout = async () => {
-    await signOut()
-    navigate('/login')
-  }
-
   return (
-    <div className="home">
-      <header className="home__nav">
-        <div className="home__brand">
-          <span className="home__brand-mark" aria-hidden>
-            <HeartIcon />
-          </span>
-          <span>HeartToMom</span>
-        </div>
-        <button className="home__logout" onClick={handleLogout}>Log out</button>
-      </header>
+    <div className="page">
+      <NavBar profile={profile} />
+
+      {showProfileModal && (
+        <ProfileIncompleteModal
+          onFinish={() => navigate('/onboarding')}
+          onDismiss={() => setProfileModalDismissed(true)}
+        />
+      )}
 
       <main className="dash">
         {/* ---------- Header row ---------- */}
@@ -110,10 +113,7 @@ export default function Home() {
         <div className="dash__grid">
           {/* LEFT — Appointments */}
           <section className="card appts">
-            <div className="card__head">
-              <h2 className="card__title">Upcoming appointments</h2>
-              <span className="card__sub">{MONTHS[new Date().getMonth()]} {new Date().getFullYear()}</span>
-            </div>
+            <h2 className="card__title">Upcoming appointments</h2>
 
             <MonthCalendar appointments={appointments} />
 
@@ -177,7 +177,9 @@ export default function Home() {
             <section className="card checkin">
               <h2 className="card__title card__title--sm">Daily check-in</h2>
               <p className="checkin__sub">Takes about 90 seconds</p>
-              <button className="checkin__btn">Start questionnaire →</button>
+              <button className="checkin__btn" onClick={() => navigate('/track-health')}>
+                Start questionnaire →
+              </button>
             </section>
           </div>
         </div>
@@ -224,8 +226,27 @@ function Stat({ label, value, unit }) {
 
 function MonthCalendar({ appointments }) {
   const today = new Date()
-  const year = today.getFullYear()
-  const month = today.getMonth()
+  const [{ year, month }, setYM] = useState({
+    year: today.getFullYear(),
+    month: today.getMonth(),
+  })
+
+  // Bounds: ±12 months from "today" (the day the component first mounted)
+  const minStamp = today.getFullYear() * 12 + today.getMonth() - 12
+  const maxStamp = today.getFullYear() * 12 + today.getMonth() + 12
+  const curStamp = year * 12 + month
+
+  const shift = (delta) => {
+    const next = curStamp + delta
+    if (next < minStamp || next > maxStamp) return
+    const y = Math.floor(next / 12)
+    const m = next - y * 12
+    setYM({ year: y, month: m })
+  }
+
+  const canPrev = curStamp > minStamp
+  const canNext = curStamp < maxStamp
+
   const first = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0).getDate()
   const startWeekday = first.getDay() // 0 = Sun
@@ -255,6 +276,21 @@ function MonthCalendar({ appointments }) {
 
   return (
     <div className="cal">
+      <div className="cal__nav">
+        <button
+          className="cal__arrow"
+          onClick={() => shift(-1)}
+          disabled={!canPrev}
+          aria-label="Previous month"
+        >‹</button>
+        <span className="cal__title">{MONTHS[month]} {year}</span>
+        <button
+          className="cal__arrow"
+          onClick={() => shift(1)}
+          disabled={!canNext}
+          aria-label="Next month"
+        >›</button>
+      </div>
       <div className="cal__head">
         {WEEKDAYS.map((d, i) => (<span key={i}>{d}</span>))}
       </div>
@@ -279,11 +315,24 @@ function MonthCalendar({ appointments }) {
   )
 }
 
-function HeartIcon() {
+function ProfileIncompleteModal({ onFinish, onDismiss }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+      <div className="modal__backdrop" onClick={onDismiss} />
+      <div className="modal__card">
+        <button className="modal__close" onClick={onDismiss} aria-label="Close">×</button>
+        <span className="modal__emoji" aria-hidden>🌸</span>
+        <h2 id="profile-modal-title" className="modal__title">Finish your health profile</h2>
+        <p className="modal__lede">
+          A few more details unlocks personalized risk monitoring,
+          smarter appointment suggestions, and a more accurate due-date timeline.
+        </p>
+        <div className="modal__actions">
+          <button className="btn-ghost" onClick={onDismiss}>Maybe later</button>
+          <button className="btn-primary" onClick={onFinish}>Finish profile →</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
