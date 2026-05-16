@@ -85,10 +85,14 @@ export default function SyncWearable() {
     [connected]
   )
 
-  const saveConnection = useCallback(async (providerName) => {
+  const saveConnection = useCallback(async (providerName, options = {}) => {
     setConnecting(providerName)
     setError('')
     try {
+      if (options.importMockVitals) {
+        await importMockVitals(user.id)
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({ wearable_provider: providerName, updated_at: new Date().toISOString() })
@@ -125,7 +129,7 @@ export default function SyncWearable() {
     if (flowStep !== 'syncing' || syncProgress !== 100 || !flowProvider) return undefined
 
     const timer = window.setTimeout(() => {
-      saveConnection(flowProvider.name)
+      saveConnection(flowProvider.name, { importMockVitals: true })
     }, 420)
 
     return () => window.clearTimeout(timer)
@@ -426,6 +430,23 @@ class BluetoothConnectError extends Error {
   }
 }
 
+async function importMockVitals(userId) {
+  const now = new Date()
+  const systolic = 112 + Math.floor(Math.random() * 12)
+  const diastolic = 70 + Math.floor(Math.random() * 8)
+  const heartRate = 76 + Math.floor(Math.random() * 12)
+
+  const { error } = await supabase.from('vitals').insert({
+    user_id: userId,
+    systolic,
+    diastolic,
+    heart_rate: heartRate,
+    recorded_at: now.toISOString(),
+  })
+
+  if (error) throw error
+}
+
 function ConnectFlow({
   provider,
   step,
@@ -582,7 +603,7 @@ function ConnectFlow({
             <p className="sw-flow__done-copy">
               {isManualDone
                 ? 'Your latest blood pressure and heart rate are ready for the dashboard.'
-                : `${deviceName || provider.name} will now appear as your connected wearable. New vitals will show on the dashboard when available.`}
+                : `${deviceName || provider.name} will now appear as your connected wearable. A fresh sample vital was imported for your dashboard.`}
             </p>
             <button className="sw-flow__primary" onClick={onClose}>Done</button>
           </div>
