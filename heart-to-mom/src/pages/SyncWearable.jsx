@@ -139,6 +139,16 @@ export default function SyncWearable() {
     setFlowStep('permissions')
   }
 
+  const useManualFallback = () => {
+    const manualProvider = PROVIDERS.find((provider) => provider.id === 'manual')
+    if (!manualProvider) return
+    setFlowProvider(null)
+    setFlowStep('permissions')
+    setFlowError(null)
+    setSyncProgress(0)
+    saveConnection(manualProvider.name)
+  }
+
   const closeFlow = () => {
     setFlowProvider(null)
     setFlowStep('permissions')
@@ -273,6 +283,7 @@ export default function SyncWearable() {
           connecting={connecting === flowProvider.name}
           onAuthorize={authorizeFlow}
           onRetry={authorizeFlow}
+          onUseManual={useManualFallback}
           onClose={closeFlow}
         />
       )}
@@ -365,7 +376,7 @@ class BluetoothConnectError extends Error {
   }
 }
 
-function ConnectFlow({ provider, step, progress, deviceName, error, connecting, onAuthorize, onRetry, onClose }) {
+function ConnectFlow({ provider, step, progress, deviceName, error, connecting, onAuthorize, onRetry, onUseManual, onClose }) {
   const isDone = step === 'done'
   const isPairing = step === 'pairing'
   const isSyncing = step === 'syncing'
@@ -468,9 +479,14 @@ function ConnectFlow({ provider, step, progress, deviceName, error, connecting, 
             <p className="sw-flow__error-copy">
               {error?.message || 'Check Bluetooth permissions and try again.'}
             </p>
-            <div className="sw-flow__actions sw-flow__actions--center">
-              <button className="sw-flow__secondary" onClick={onClose}>Close</button>
+            <div className="sw-flow__browser-note">
+              <span aria-hidden><ProviderIcon name="shield" /></span>
+              <p>Direct Bluetooth pairing works best in Chrome or Edge on desktop. If the device is not discoverable, manual entry keeps your vitals flowing.</p>
+            </div>
+            <div className="sw-flow__actions sw-flow__actions--stacked">
+              <button className="sw-flow__primary" onClick={onUseManual}>Use manual entry</button>
               <button className="sw-flow__primary" onClick={onRetry}>Try again</button>
+              <button className="sw-flow__secondary" onClick={onClose}>Choose another device</button>
             </div>
           </div>
         )}
