@@ -30,6 +30,14 @@
   font-weight: 600;
 }
 
+.rs__factor-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+  padding: 12px 0;
+}
+
 .rs__factor-list {
   list-style: none;
   margin: 0;

@@ -107,8 +107,18 @@ export default function Onboarding() {
         onboarding_completed: !!markComplete,
         updated_at: new Date().toISOString(),
       }
-      const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' })
-      if (error) throw error
+      const { error: saveError } = await supabase
+        .from('profiles')
+        .upsert(payload, { onConflict: 'id' })
+
+      if (saveError) {
+        if (markComplete) {
+          // "Finish setup" must succeed — surface the error and stay put
+          throw saveError
+        }
+        // "Save & finish later" — log + exit anyway so the user isn't trapped
+        console.warn('Profile save failed but navigating anyway:', saveError)
+      }
       navigate('/home')
     } catch (err) {
       setError(err.message ?? 'Could not save. Try again.')
