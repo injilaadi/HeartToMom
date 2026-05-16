@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import NavBar from '../components/NavBar.jsx'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -55,13 +55,10 @@ export default function SyncWearable() {
   const { user } = useAuth()
   const [profile, setProfile] = useState(null)
   const [connecting, setConnecting] = useState('')
+  const [flowProvider, setFlowProvider] = useState(null)
+  const [flowStep, setFlowStep] = useState('permissions')
+  const [syncProgress, setSyncProgress] = useState(0)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!user) return
-    supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
-      .then(({ data }) => setProfile(data ?? null))
-  }, [user])
 
   const connected = profile?.wearable_provider ?? ''
   const connectedProvider = useMemo(
@@ -69,7 +66,7 @@ export default function SyncWearable() {
     [connected]
   )
 
-  const connect = async (providerName) => {
+  const saveConnection = useCallback(async (providerName) => {
     setConnecting(providerName)
     setError('')
     try {
@@ -79,11 +76,63 @@ export default function SyncWearable() {
         .eq('id', user.id)
       if (error) throw error
       setProfile((p) => ({ ...p, wearable_provider: providerName }))
+      setFlowStep('done')
     } catch (err) {
       setError(err.message ?? 'Could not sync this wearable. Please try again.')
+      setFlowStep('permissions')
     } finally {
       setConnecting('')
     }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+      .then(({ data }) => setProfile(data ?? null))
+  }, [user])
+
+  useEffect(() => {
+    if (flowStep !== 'syncing') return undefined
+
+    const ticks = [34, 58, 82, 100]
+    const timers = ticks.map((value, index) => (
+      window.setTimeout(() => setSyncProgress(value), 420 * (index + 1))
+    ))
+
+    return () => timers.forEach(window.clearTimeout)
+  }, [flowStep])
+
+  useEffect(() => {
+    if (flowStep !== 'syncing' || syncProgress !== 100 || !flowProvider) return undefined
+
+    const timer = window.setTimeout(() => {
+      saveConnection(flowProvider.name)
+    }, 420)
+
+    return () => window.clearTimeout(timer)
+  }, [flowProvider, flowStep, saveConnection, syncProgress])
+
+  const beginConnect = (provider) => {
+    setError('')
+    setSyncProgress(0)
+    if (provider.id === 'manual') {
+      saveConnection(provider.name)
+      return
+    }
+    setFlowProvider(provider)
+    setFlowStep('permissions')
+  }
+
+  const closeFlow = () => {
+    setFlowProvider(null)
+    setFlowStep('permissions')
+    setSyncProgress(0)
+  }
+
+  const authorizeFlow = () => {
+    setError('')
+    setSyncProgress(12)
+    setFlowStep('syncing')
   }
 
   return (
@@ -148,7 +197,7 @@ export default function SyncWearable() {
 
                   <button
                     className={`sw__btn ${isConnected ? 'sw__btn--connected' : ''}`}
-                    onClick={() => connect(provider.name)}
+                    onClick={() => beginConnect(provider)}
                     disabled={isLoading || isConnected}
                   >
                     {isLoading ? 'Connecting...' : isConnected ? 'Connected' : provider.id === 'manual' ? 'Use manual entry' : 'Connect'}
@@ -185,6 +234,114 @@ export default function SyncWearable() {
           </aside>
         </div>
       </main>
+
+      {flowProvider && (
+        <ConnectFlow
+          provider={flowProvider}
+          step={flowStep}
+          progress={syncProgress}
+          connecting={connecting === flowProvider.name}
+          onAuthorize={authorizeFlow}
+          onClose={closeFlow}
+        />
+      )}
+    </div>
+  )
+}
+
+function ConnectFlow({ provider, step, progress, connecting, onAuthorize, onClose }) {
+  const isDone = step === 'done'
+  const isSyncing = step === 'syncing'
+
+  return (
+    <div className="sw-flow" role="dialog" aria-modal="true" aria-labelledby="sw-flow-title">
+      <div className="sw-flow__backdrop" onClick={isSyncing ? undefined : onClose} />
+      <section className="sw-flow__card">
+        <button
+          className="sw-flow__close"
+          onClick={onClose}
+          disabled={isSyncing || connecting}
+          aria-label="Close connect flow"
+        >
+          ×
+        </button>
+
+        <div className="sw-flow__brand">
+          <span className="sw-flow__device" aria-hidden><ProviderIcon name={provider.glyph} /></span>
+          <div>
+            <p className="sw-flow__kicker">{isDone ? 'CONNECTED' : 'CONNECT DEVICE'}</p>
+            <h2 id="sw-flow-title">{isDone ? `${provider.name} is ready` : `Connect ${provider.name}`}</h2>
+          </div>
+        </div>
+
+        <div className="sw-flow__steps" aria-label="Connection progress">
+          {['permissions', 'syncing', 'done'].map((item, index) => {
+            const activeIndex = isDone ? 2 : isSyncing ? 1 : 0
+            return (
+              <span
+                key={item}
+                className={[
+                  'sw-flow__step',
+                  index <= activeIndex && 'is-active',
+                  index < activeIndex && 'is-complete',
+                ].filter(Boolean).join(' ')}
+              />
+            )
+          })}
+        </div>
+
+        {step === 'permissions' && (
+          <>
+            <p className="sw-flow__lede">
+              Review the signals HeartToMom will request from {provider.name}. You can disconnect or switch devices later.
+            </p>
+
+            <div className="sw-flow__permission-grid">
+              {provider.syncs.map((signal) => (
+                <label key={signal} className="sw-flow__permission">
+                  <input type="checkbox" checked readOnly />
+                  <span>{signal}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="sw-flow__note">
+              <span aria-hidden><ProviderIcon name="shield" /></span>
+              <p>We only save summarized vitals to your profile. Raw wearable feeds stay private.</p>
+            </div>
+
+            <div className="sw-flow__actions">
+              <button className="sw-flow__secondary" onClick={onClose}>Cancel</button>
+              <button className="sw-flow__primary" onClick={onAuthorize}>
+                Authorize sync
+              </button>
+            </div>
+          </>
+        )}
+
+        {isSyncing && (
+          <div className="sw-flow__syncing">
+            <div className="sw-flow__pulse" aria-hidden><ProviderIcon name={provider.glyph} /></div>
+            <p className="sw-flow__sync-title">Securely syncing {provider.name}</p>
+            <p className="sw-flow__sync-copy">Checking permissions, reading recent signals, and preparing your dashboard.</p>
+            <div className="sw-flow__progress" aria-label={`${progress}% complete`}>
+              <span style={{ width: `${progress}%` }} />
+            </div>
+            <p className="sw-flow__progress-label">{progress}% complete</p>
+          </div>
+        )}
+
+        {isDone && (
+          <div className="sw-flow__done">
+            <span className="sw-flow__done-mark" aria-hidden>✓</span>
+            <p className="sw-flow__done-title">Connection saved</p>
+            <p className="sw-flow__done-copy">
+              {provider.name} will now appear as your connected wearable. New vitals will show on the dashboard when available.
+            </p>
+            <button className="sw-flow__primary" onClick={onClose}>Done</button>
+          </div>
+        )}
+      </section>
     </div>
   )
 }
