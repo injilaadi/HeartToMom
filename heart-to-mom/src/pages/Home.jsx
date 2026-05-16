@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { useDashboardData } from '../lib/useDashboardData.js'
+import { supabase } from '../lib/supabase.js'
 import NavBar from '../components/NavBar.jsx'
 import './pages-common.css'
 import './Home.css'
@@ -16,11 +17,26 @@ const MONTHS = [
 const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const WEEKDAYS = ['S','M','T','W','T','F','S']
 
+const GOOGLE_SYNC_APPOINTMENTS = [
+  { title: 'Prenatal checkup', provider: 'Google Calendar', daysFromNow: 6, hour: 10, required: false, suggested: false },
+  { title: 'Blood pressure screening', provider: 'Google Calendar', daysFromNow: 13, hour: 14, required: true, suggested: false },
+]
+
+const RECOMMENDED_APPOINTMENTS = [
+  { id: 'rec-bp', title: 'Blood pressure review', provider: 'Recommended', daysFromNow: 5, required: true, suggested: false },
+  { id: 'rec-ultrasound', title: 'Ultrasound follow-up', provider: 'Recommended', daysFromNow: 12, required: false, suggested: true },
+  { id: 'rec-birth-plan', title: 'Birth plan consult', provider: 'Recommended', daysFromNow: 21, required: false, suggested: true },
+]
+
 export default function Home() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { profile, appointments, latestVital, latestCheckIn, loading } = useDashboardData()
   const [profileModalDismissed, setProfileModalDismissed] = useState(false)
+  const [localAppointments, setLocalAppointments] = useState([])
+  const [appointmentModalOpen, setAppointmentModalOpen] = useState(false)
+  const [appointmentSyncing, setAppointmentSyncing] = useState(false)
+  const [appointmentError, setAppointmentError] = useState('')
 
   // Show the "finish your health profile" modal whenever the user
   // hasn't completed onboarding (incl. when their profile row is missing entirely).
@@ -51,6 +67,60 @@ export default function Home() {
     : wearableProvider
       ? 'Waiting for first reading'
       : 'Not connected'
+  const recommendedAppointments = buildRecommendedAppointments()
+  const calendarAppointments = mergeAppointments(appointments, localAppointments, recommendedAppointments)
+  const bookedAppointments = calendarAppointments.filter((appt) => !appt.recommended)
+  const recommendedUpcoming = calendarAppointments.filter((appt) => appt.recommended)
+
+  const addAppointment = async (payload) => {
+    setAppointmentError('')
+    const appointment = {
+      user_id: user.id,
+      title: payload.title,
+      provider: payload.provider || null,
+      location: payload.location || null,
+      scheduled_at: payload.scheduled_at,
+      required: payload.kind === 'required',
+      suggested: payload.kind === 'suggested',
+    }
+
+    const { data, error } = await supabaseInsertAppointment(appointment)
+    if (error) {
+      setAppointmentError(error.message ?? 'Could not add appointment.')
+      return false
+    }
+
+    setLocalAppointments((current) => [...current, data ?? { ...appointment, id: `local-${Date.now()}` }])
+    return true
+  }
+
+  const syncGoogleCalendar = async () => {
+    setAppointmentError('')
+    setAppointmentSyncing(true)
+    try {
+      const synced = GOOGLE_SYNC_APPOINTMENTS.map((appt) => ({
+        user_id: user.id,
+        title: appt.title,
+        provider: appt.provider,
+        location: 'Google Calendar',
+        scheduled_at: appointmentDate(appt.daysFromNow, appt.hour).toISOString(),
+        required: appt.required,
+        suggested: appt.suggested,
+      }))
+
+      await new Promise((resolve) => window.setTimeout(resolve, 700))
+      const saved = await Promise.all(synced.map(async (appt, index) => {
+        const { data, error } = await supabaseInsertAppointment(appt)
+        if (error) throw error
+        return data ?? { ...appt, id: `google-${Date.now()}-${index}` }
+      }))
+      setLocalAppointments((current) => mergeAppointments(current, saved))
+    } catch (err) {
+      setAppointmentError(err.message ?? 'Could not sync Google Calendar.')
+    } finally {
+      setAppointmentSyncing(false)
+    }
+  }
 
   return (
     <div className="page">
@@ -119,21 +189,39 @@ export default function Home() {
         <div className="dash__grid">
           {/* LEFT — Appointments */}
           <section className="card appts">
-            <h2 className="card__title">Upcoming appointments</h2>
+            <div className="appts__head">
+              <h2 className="card__title">Upcoming appointments</h2>
+              <button
+                className="appts__add"
+                onClick={() => setAppointmentModalOpen(true)}
+                aria-label="Add appointment"
+              >
+                +
+              </button>
+            </div>
 
-            <MonthCalendar appointments={appointments} />
+            <MonthCalendar appointments={calendarAppointments} />
 
-            <ul className="appt-list">
+            <div className="appt-sections">
               {loading ? (
-                <li className="appt-list__empty">Loading…</li>
-              ) : appointments.length === 0 ? (
-                <li className="appt-list__empty">No upcoming appointments</li>
+                <p className="appt-list__empty">Loading…</p>
+              ) : calendarAppointments.length === 0 ? (
+                <p className="appt-list__empty">No upcoming appointments</p>
               ) : (
-                appointments.slice(0, 4).map((a) => (
-                  <AppointmentRow key={a.id} appt={a} />
-                ))
+                <>
+                  <AppointmentSection
+                    title="Booked"
+                    empty="No booked appointments yet"
+                    appointments={bookedAppointments.slice(0, 4)}
+                  />
+                  <AppointmentSection
+                    title="Recommended appointments"
+                    empty="No recommendations right now"
+                    appointments={recommendedUpcoming.slice(0, 4)}
+                  />
+                </>
               )}
-            </ul>
+            </div>
           </section>
 
           {/* RIGHT — stacked cards */}
@@ -203,6 +291,19 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {appointmentModalOpen && (
+        <AppointmentModal
+          error={appointmentError}
+          syncing={appointmentSyncing}
+          onAdd={addAppointment}
+          onSync={syncGoogleCalendar}
+          onClose={() => {
+            setAppointmentModalOpen(false)
+            setAppointmentError('')
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -213,7 +314,7 @@ function AppointmentRow({ appt }) {
   const date = new Date(appt.scheduled_at)
   const monthDay = `${SHORT_MONTHS[date.getMonth()]} ${date.getDate()}`
   const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  const tag = appt.required ? 'required' : appt.suggested ? 'suggested' : 'normal'
+  const tag = appt.recommended ? 'suggested' : appt.required ? 'required' : appt.suggested ? 'suggested' : 'normal'
 
   return (
     <li className={`appt appt--${tag}`}>
@@ -224,10 +325,125 @@ function AppointmentRow({ appt }) {
           {monthDay} · {time}{appt.provider ? ` · ${appt.provider}` : appt.location ? ` · ${appt.location}` : ''}
         </p>
       </div>
-      {tag !== 'normal' && (
-        <span className={`pill pill--${tag}`}>{capitalize(tag)}</span>
+      {(tag !== 'normal' || appt.recommended) && (
+        <span className={`pill pill--${tag}`}>{appt.recommended ? 'Recommended' : capitalize(tag)}</span>
       )}
     </li>
+  )
+}
+
+function AppointmentSection({ title, empty, appointments }) {
+  return (
+    <section className="appt-section">
+      <div className="appt-section__head">
+        <h3>{title}</h3>
+        <span>{appointments.length}</span>
+      </div>
+      {appointments.length === 0 ? (
+        <p className="appt-section__empty">{empty}</p>
+      ) : (
+        <ul className="appt-list">
+          {appointments.map((appt) => (
+            <AppointmentRow key={appt.id} appt={appt} />
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function AppointmentModal({ error, syncing, onAdd, onSync, onClose }) {
+  const [mode, setMode] = useState('manual')
+  const [form, setForm] = useState({
+    title: '',
+    provider: '',
+    location: '',
+    date: '',
+    time: '',
+    kind: 'booked',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const canSave = form.title.trim() && form.date && form.time
+  const update = (field, value) => setForm((current) => ({ ...current, [field]: value }))
+
+  const submit = async () => {
+    if (!canSave) return
+    setSaving(true)
+    const ok = await onAdd({
+      ...form,
+      scheduled_at: new Date(`${form.date}T${form.time}`).toISOString(),
+    })
+    setSaving(false)
+    if (ok) onClose()
+  }
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="appointment-modal-title">
+      <div className="modal__backdrop" onClick={onClose} />
+      <div className="modal__card appt-modal">
+        <button className="modal__close" onClick={onClose} aria-label="Close">×</button>
+        <h2 id="appointment-modal-title" className="modal__title">Add appointment</h2>
+
+        <div className="appt-modal__tabs">
+          <button className={mode === 'manual' ? 'is-active' : ''} onClick={() => setMode('manual')}>Add manually</button>
+          <button className={mode === 'sync' ? 'is-active' : ''} onClick={() => setMode('sync')}>Sync to calendar</button>
+        </div>
+
+        {mode === 'manual' ? (
+          <div className="appt-form">
+            <label>
+              <span>Appointment title</span>
+              <input value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Prenatal checkup" />
+            </label>
+            <label>
+              <span>Provider</span>
+              <input value={form.provider} onChange={(e) => update('provider', e.target.value)} placeholder="Dr. Lee" />
+            </label>
+            <label>
+              <span>Location</span>
+              <input value={form.location} onChange={(e) => update('location', e.target.value)} placeholder="Clinic or telehealth" />
+            </label>
+            <div className="appt-form__row">
+              <label>
+                <span>Date</span>
+                <input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} />
+              </label>
+              <label>
+                <span>Time</span>
+                <input type="time" value={form.time} onChange={(e) => update('time', e.target.value)} />
+              </label>
+            </div>
+            <label>
+              <span>Type</span>
+              <select value={form.kind} onChange={(e) => update('kind', e.target.value)}>
+                <option value="booked">Booked</option>
+                <option value="required">Booked · required</option>
+                <option value="suggested">Booked · suggested</option>
+              </select>
+            </label>
+            {error && <p className="appt-modal__error">{error}</p>}
+            <div className="modal__actions">
+              <button className="btn-ghost" onClick={onClose}>Cancel</button>
+              <button className="btn-primary" disabled={!canSave || saving} onClick={submit}>
+                {saving ? 'Saving…' : 'Add appointment'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="appt-sync">
+            <div className="appt-sync__mark" aria-hidden>G</div>
+            <h3>Sync Google Calendar</h3>
+            <p>Connect your Google Calendar to bring upcoming prenatal visits into HeartToMom.</p>
+            <button className="btn-primary" onClick={onSync} disabled={syncing}>
+              {syncing ? 'Syncing…' : 'Sync Google Calendar'}
+            </button>
+            {error && <p className="appt-modal__error">{error}</p>}
+            <p className="appt-sync__note">Demo sync imports two upcoming appointments from Google Calendar.</p>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -356,6 +572,52 @@ function ProfileIncompleteModal({ onFinish, onDismiss }) {
 }
 
 /* --------------------------------- Helpers -------------------------------- */
+
+async function supabaseInsertAppointment(appointment) {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .insert(appointment)
+      .select('*')
+      .single()
+    return { data, error }
+  } catch (error) {
+    return { data: null, error }
+  }
+}
+
+function buildRecommendedAppointments() {
+  return RECOMMENDED_APPOINTMENTS.map((appt) => ({
+    id: appt.id,
+    title: appt.title,
+    provider: appt.provider,
+    scheduled_at: appointmentDate(appt.daysFromNow, 9).toISOString(),
+    required: appt.required,
+    suggested: appt.suggested,
+    recommended: true,
+  }))
+}
+
+function mergeAppointments(...groups) {
+  const seen = new Set()
+  return groups
+    .flat()
+    .filter(Boolean)
+    .filter((appt) => {
+      const key = `${appt.title}-${appt.scheduled_at}-${appt.provider ?? ''}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
+}
+
+function appointmentDate(daysFromNow, hour) {
+  const date = new Date()
+  date.setDate(date.getDate() + daysFromNow)
+  date.setHours(hour, 0, 0, 0)
+  return date
+}
 
 function rank(tag) { return tag === 'required' ? 3 : tag === 'suggested' ? 2 : 1 }
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
