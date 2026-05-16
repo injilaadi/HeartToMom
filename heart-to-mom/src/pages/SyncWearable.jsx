@@ -368,6 +368,14 @@ async function requestBluetoothDevice(provider) {
     optionalServices: bluetooth.services,
   })
 
+  if (!isSupportedDeviceName(device.name, bluetooth.namePrefixes)) {
+    throw new BluetoothConnectError(
+      'unsupported-device',
+      `${device.name || 'Selected device'} is not supported for ${provider.name}.`,
+      `You selected ${device.name || 'a Bluetooth device'}, but this flow expects ${provider.name}. Choose a supported wearable or use manual entry.`
+    )
+  }
+
   if (!device.gatt) {
     throw new BluetoothConnectError(
       'gatt-unavailable',
@@ -378,6 +386,13 @@ async function requestBluetoothDevice(provider) {
 
   await device.gatt.connect()
   return device
+}
+
+function isSupportedDeviceName(deviceName = '', supportedPrefixes = []) {
+  if (!deviceName) return false
+  return supportedPrefixes.some((prefix) => (
+    deviceName.toLowerCase().startsWith(prefix.toLowerCase())
+  ))
 }
 
 function formatBluetoothError(err, provider) {
@@ -468,6 +483,7 @@ function ConnectFlow({
   const isPairing = step === 'pairing'
   const isSyncing = step === 'syncing'
   const isBusy = isPairing || isSyncing || connecting
+  const isUnsupportedDevice = error?.code === 'unsupported-device'
 
   return (
     <div className="sw-flow" role="dialog" aria-modal="true" aria-labelledby="sw-flow-title">
@@ -586,7 +602,11 @@ function ConnectFlow({
             </p>
             <div className="sw-flow__browser-note">
               <span aria-hidden><ProviderIcon name="shield" /></span>
-              <p>Direct Bluetooth pairing works best in Chrome or Edge on desktop. If the device is not discoverable, manual entry keeps your vitals flowing.</p>
+              <p>
+                {isUnsupportedDevice
+                  ? 'This Bluetooth device was found, but it does not match the wearable type you selected.'
+                  : 'Direct Bluetooth pairing works best in Chrome or Edge on desktop. If the device is not discoverable, manual entry keeps your vitals flowing.'}
+              </p>
             </div>
             <div className="sw-flow__actions sw-flow__actions--stacked">
               <button className="sw-flow__primary" onClick={onUseManual}>Use manual entry</button>
