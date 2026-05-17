@@ -294,9 +294,13 @@ export default function Home() {
 
             <section className="card checkin">
               <h2 className="card__title card__title--sm">Daily check-in</h2>
-              <p className="checkin__sub">Takes about 90 seconds</p>
+              <p className="checkin__sub">
+                {isCheckInRecent(latestCheckIn)
+                  ? 'Submitted recently — you can edit it'
+                  : 'Takes about 90 seconds'}
+              </p>
               <button className="checkin__btn" onClick={() => navigate('/track-health')}>
-                Start questionnaire →
+                {isCheckInRecent(latestCheckIn) ? 'Edit check-in →' : 'Start questionnaire →'}
               </button>
             </section>
           </div>
@@ -632,6 +636,12 @@ function appointmentDate(daysFromNow, hour) {
 
 function rank(tag) { return tag === 'required' ? 3 : tag === 'suggested' ? 2 : 1 }
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
+
+function isCheckInRecent(checkIn) {
+  if (!checkIn?.created_at) return false
+  const TWELVE_HOURS = 12 * 60 * 60 * 1000
+  return Date.now() - new Date(checkIn.created_at).getTime() < TWELVE_HOURS
+}
 
 function greetingForHour(h) {
   if (h < 12) return 'Good morning'
