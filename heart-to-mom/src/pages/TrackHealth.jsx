@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import NavBar from '../components/NavBar.jsx'
 import RiskScoreCard from '../components/RiskScoreCard.jsx'
-import RiskAssessment from '../components/RiskAssessment.jsx'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import { triggerRiskAssessment } from '../lib/useRiskAssessment.js'
@@ -77,11 +76,8 @@ export default function TrackHealth() {
           </p>
         </header>
 
-        {/* Risk score breakdown — donut + factor bars */}
+        {/* Risk score breakdown — donut + factor bars driven by the latest AI assessment */}
         <RiskScoreCard assessment={latestAssessment} />
-
-        {/* AI risk assessment — Gemini analysis across conditions */}
-        <RiskAssessment refreshSignal={assessmentSignal} />
 
         <div className="th__grid">
           {/* Daily questionnaire */}

@@ -113,12 +113,28 @@ export default function Onboarding() {
         .upsert(payload, { onConflict: 'id' })
 
       if (saveError) {
-        if (markComplete) {
-          // "Finish setup" must succeed — surface the error and stay put
-          throw saveError
+        // Most common cause in this project: the new health columns (alcohol_use,
+        // medications, etc.) haven't been added to the DB yet. Fall back to a
+        // minimal payload using only the columns that existed in the original
+        // schema, so onboarding can complete + the AI assessment still runs.
+        const minimalPayload = {
+          id: user.id,
+          full_name: form.full_name || null,
+          due_date: form.due_date || null,
+          last_period: form.last_period || null,
+          onboarding_completed: !!markComplete,
+          updated_at: new Date().toISOString(),
         }
-        // "Save & finish later" — log + exit anyway so the user isn't trapped
-        console.warn('Profile save failed but navigating anyway:', saveError)
+        const { error: minErr } = await supabase
+          .from('profiles')
+          .upsert(minimalPayload, { onConflict: 'id' })
+
+        if (minErr) {
+          if (markComplete) throw minErr
+          console.warn('Both profile saves failed; navigating anyway:', minErr)
+        } else {
+          console.warn('Full profile save failed; saved minimal subset instead. Re-run schema.sql to capture the rest:', saveError)
+        }
       }
 
       // When the profile is fully filled in, generate the first AI risk
