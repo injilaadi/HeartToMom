@@ -164,6 +164,21 @@ export default function SyncWearable() {
     await refreshProfile()
   }
 
+  const disconnectWearable = async () => {
+    if (!window.confirm(`Disconnect ${connectedProvider?.name ?? 'this device'}? You can reconnect any time.`)) return
+    setError('')
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ wearable_provider: null, updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (error) throw error
+      setProfile((p) => ({ ...p, wearable_provider: null }))
+    } catch (err) {
+      setError(err.message ?? 'Could not disconnect device.')
+    }
+  }
+
   const useManualFallback = () => {
     const manualProvider = PROVIDERS.find((provider) => provider.id === 'manual')
     if (!manualProvider) return
@@ -262,10 +277,17 @@ export default function SyncWearable() {
                 : 'Choose a device below to start bringing vitals into your HeartToMom dashboard.'}
             </p>
           </div>
-          <span className={`sw__status ${connectedProvider ? 'sw__status--ok' : ''}`}>
-            <span className="sw__status-dot" />
-            {connectedProvider ? 'ready to sync' : 'not connected'}
-          </span>
+          <div className="sw__summary-actions">
+            <span className={`sw__status ${connectedProvider ? 'sw__status--ok' : ''}`}>
+              <span className="sw__status-dot" />
+              {connectedProvider ? 'ready to sync' : 'not connected'}
+            </span>
+            {connectedProvider && (
+              <button className="sw__disconnect" onClick={disconnectWearable}>
+                Disconnect
+              </button>
+            )}
+          </div>
         </section>
 
         {error && <div className="sw__error">{error}</div>}
@@ -301,23 +323,34 @@ export default function SyncWearable() {
                     <span>{provider.cadence}</span>
                   </div>
 
-                  <button
-                    className={`sw__btn ${isConnected ? 'sw__btn--connected' : ''}`}
-                    onClick={() => canSyncConnectedDemo ? syncConnectedProviderNow(provider.name) : beginConnect(provider)}
-                    disabled={isLoading || isComingSoon || (isConnected && !canSyncConnectedDemo)}
-                  >
-                    {isComingSoon
-                      ? 'To be implemented'
-                      : isLoading
-                      ? (canSyncConnectedDemo ? 'Syncing...' : 'Connecting...')
-                      : canSyncConnectedDemo
-                        ? 'Sync now'
-                        : isConnected
-                          ? 'Connected'
-                          : provider.id === 'manual'
-                            ? 'Use manual entry'
-                            : 'Connect'}
-                  </button>
+                  <div className="sw__btn-row">
+                    <button
+                      className={`sw__btn ${isConnected ? 'sw__btn--connected' : ''}`}
+                      onClick={() => canSyncConnectedDemo ? syncConnectedProviderNow(provider.name) : beginConnect(provider)}
+                      disabled={isLoading || isComingSoon || (isConnected && !canSyncConnectedDemo)}
+                    >
+                      {isComingSoon
+                        ? 'To be implemented'
+                        : isLoading
+                        ? (canSyncConnectedDemo ? 'Syncing...' : 'Connecting...')
+                        : canSyncConnectedDemo
+                          ? 'Sync now'
+                          : isConnected
+                            ? 'Connected'
+                            : provider.id === 'manual'
+                              ? 'Use manual entry'
+                              : 'Connect'}
+                    </button>
+                    {isConnected && (
+                      <button
+                        className="sw__btn-unsync"
+                        onClick={disconnectWearable}
+                        disabled={isLoading}
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
                 </article>
               )
             })}
