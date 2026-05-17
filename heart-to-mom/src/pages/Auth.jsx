@@ -136,6 +136,16 @@ export default function Auth() {
             onSubmit={handleSubmit}
             autoComplete={isLogin ? 'on' : 'off'}
           >
+            {/* Honeypot fields — Chrome/Safari ignore autoComplete="off" but
+                will happily autofill the FIRST email/password inputs they see.
+                Sitting these off-screen above the real fields catches those
+                autofills so the real inputs stay clean in create mode. */}
+            {!isLogin && (
+              <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', height: 0, width: 0, overflow: 'hidden' }}>
+                <input type="text" name="fakeusernameremembered" tabIndex={-1} autoComplete="username" />
+                <input type="password" name="fakepasswordremembered" tabIndex={-1} autoComplete="current-password" />
+              </div>
+            )}
             {!isLogin && (
               <label className="field">
                 <span className="field__label">Full name</span>
@@ -148,6 +158,8 @@ export default function Auth() {
                     onChange={(e) => setName(e.target.value)}
                     autoComplete="off"
                     name="signup-full-name"
+                    readOnly
+                    onFocus={(e) => e.target.removeAttribute('readonly')}
                   />
                 </span>
               </label>
@@ -164,6 +176,8 @@ export default function Auth() {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete={isLogin ? 'username' : 'off'}
                   name={isLogin ? 'email' : 'signup-email'}
+                  readOnly={!isLogin}
+                  onFocus={(e) => { if (!isLogin) e.target.removeAttribute('readonly') }}
                 />
               </span>
             </label>
@@ -186,6 +200,8 @@ export default function Auth() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={isLogin ? 'current-password' : 'new-password'}
                   name={isLogin ? 'password' : 'signup-password'}
+                  readOnly={!isLogin}
+                  onFocus={(e) => { if (!isLogin) e.target.removeAttribute('readonly') }}
                 />
                 <button
                   type="button"
