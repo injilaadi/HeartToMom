@@ -83,11 +83,23 @@ export default function Home() {
       ? !!window.localStorage.getItem(`htm:profilePromptEnabled:${user.id}`)
       : false
 
-  const showProfileModal =
+  const onboardingIncomplete =
     !loading
     && !!user
     && !profile?.onboarding_completed
     && !localCompletedFlag
+
+  // First-time visitors (no profile yet, never hit "Save & finish later") go
+  // straight to onboarding. Once they hit save-and-finish-later, the prompt
+  // flag is set and they stay on /home with the reminder modal.
+  useEffect(() => {
+    if (onboardingIncomplete && !profilePromptEnabled) {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [onboardingIncomplete, profilePromptEnabled, navigate])
+
+  const showProfileModal =
+    onboardingIncomplete
     && profilePromptEnabled
     && !profileModalDismissed
 
