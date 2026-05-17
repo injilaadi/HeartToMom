@@ -17,6 +17,7 @@ const PROVIDERS = [
     bluetooth: {
       namePrefixes: ['Fitbit', 'Charge', 'Sense', 'Versa', 'Inspire'],
       services: ['heart_rate', 'battery_service', 'device_information'],
+      demoPairOnSelect: true,
     },
   },
   {
@@ -30,6 +31,7 @@ const PROVIDERS = [
     bluetooth: {
       namePrefixes: ['Apple Watch', 'Apple'],
       services: ['heart_rate', 'battery_service', 'device_information'],
+      demoPairOnSelect: true,
     },
   },
   {
@@ -394,6 +396,10 @@ async function requestBluetoothDevice(provider) {
     acceptAllDevices: true,
     optionalServices: bluetooth.services,
   })
+
+  if (bluetooth.demoPairOnSelect) {
+    return device
+  }
 
   if (!isSupportedDeviceName(device.name, bluetooth.namePrefixes)) {
     throw new BluetoothConnectError(
