@@ -453,13 +453,6 @@ export default function SyncWearable() {
               </ul>
             </section>
 
-            <section className="sw__panel sw__panel--soft">
-              <p className="sw__panel-kicker">PRIVACY</p>
-              <h2>You stay in control</h2>
-              <p>
-                You can switch devices any time. Raw device feeds are not shared with providers unless you choose to export a report.
-              </p>
-            </section>
           </aside>
         </div>
       </main>

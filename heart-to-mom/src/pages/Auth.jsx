@@ -86,10 +86,6 @@ export default function Auth() {
           </ul>
         </div>
 
-        <div className="hipaa">
-          <LockIcon />
-          <span>HIPAA-compliant · your data stays private</span>
-        </div>
       </aside>
 
       {/* Right auth panel */}
