@@ -274,8 +274,9 @@ export default function TrackHealth() {
             <div>
               <h2 className="card__title">Care team summary</h2>
               <p className="th__provider-copy">
-                Create a PDF-ready snapshot of your current score, score breakdown,
-                and 30-day risk trend to bring to your next visit.
+                Want to discuss your results or latest trend? Bring a polished
+                snapshot of your score, risk breakdown, and 30-day trend to your
+                next appointment.
               </p>
             </div>
 
