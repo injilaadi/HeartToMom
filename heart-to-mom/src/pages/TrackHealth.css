@@ -37,11 +37,11 @@
 }
 
 .th__provider-copy {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
-  max-width: 30rem;
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 24rem;
 }
 
 .th__saved {
