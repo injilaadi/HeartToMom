@@ -147,6 +147,40 @@
   box-shadow: 0 0 0 3px var(--cream-50);
 }
 
+/* Postpartum checkmark replaces the dot, anchored at the end of the bar */
+.track__check {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #4a6b3f;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 3px var(--cream-50);
+}
+
+.track__postpartum-btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  border-radius: 12px;
+  background: var(--rose-500);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.track__postpartum-btn:hover {
+  background: var(--rose-600);
+  transform: translateY(-1px);
+}
+
 .track__labels {
   display: flex;
   justify-content: space-between;

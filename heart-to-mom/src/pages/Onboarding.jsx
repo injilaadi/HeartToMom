@@ -46,6 +46,7 @@ const EMPTY = {
   height_cm: '', weight_kg: '',
   conditions: [], allergies: [], medications: '', family_history: [],
   due_date: '', last_period: '', prior_pregnancies: '', complications: [],
+  is_postpartum: false,
   exercise_frequency: '', smoking_status: '', alcohol_use: '', diet_pattern: '',
 }
 
@@ -119,6 +120,7 @@ export default function Onboarding() {
           full_name: form.full_name || null,
           due_date: form.due_date || null,
           last_period: form.last_period || null,
+          is_postpartum: !!form.is_postpartum,
           onboarding_completed: !!markComplete,
           updated_at: new Date().toISOString(),
         }
@@ -368,8 +370,22 @@ function PregnancyStep({ form, update, toggle }) {
     <>
       <SectionHead icon="baby" title="Pregnancy details" />
 
+      <Field label="Pregnancy status">
+        <PillGroup
+          options={['Currently pregnant', 'Postpartum (already delivered)']}
+          selected={[form.is_postpartum ? 'Postpartum (already delivered)' : 'Currently pregnant']}
+          onToggle={(v) => update({ is_postpartum: v === 'Postpartum (already delivered)' })}
+          single
+        />
+      </Field>
+
       <Row>
-        <Field label="Estimated due date" hint="From your provider or last ultrasound.">
+        <Field
+          label={form.is_postpartum ? 'Delivery date' : 'Estimated due date'}
+          hint={form.is_postpartum
+            ? 'When your baby was born.'
+            : 'From your provider or last ultrasound.'}
+        >
           <input className="text" type="date"
             value={form.due_date}
             onChange={(e) => update({ due_date: e.target.value })} />

@@ -12,7 +12,7 @@ const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
 const QUESTIONS = [
   { id: 'mood',     label: 'How are you feeling today?',    options: ['Great', 'Okay', 'Tired', 'Unwell'] },
   { id: 'movement', label: 'Have you felt baby movement?',  options: ['Yes, normal', 'Less than usual', 'No movement today', 'N/A'] },
-  { id: 'symptoms', label: 'Any new symptoms? (select all that apply)', options: ['None', 'Headache', 'Swelling', 'Spotting', 'Cramping'], multi: true },
+  { id: 'symptoms', label: 'Any new symptoms? (select all that apply)', options: ['None', 'Headache', 'Swelling', 'Spotting', 'Cramping', 'Shortness of breath', 'Sweating', 'Fainting', 'Persistent sadness'], multi: true },
   { id: 'sleep',    label: 'How did you sleep?',            options: ['Well', 'Okay', 'Poorly'] },
   { id: 'meds',     label: 'Took your prenatal today?',     options: ['Yes', 'Not yet', 'Forgot'] },
 ]
@@ -234,8 +234,12 @@ function normalizeAnswers(raw) {
 
 function deriveRisk(answers) {
   // Flag moderate/high based on any concerning answer (now handles arrays for multi-select).
-  const high = ['No movement today', 'Spotting']
-  const moderate = ['Less than usual', 'Headache', 'Swelling', 'Cramping', 'Poorly', 'Unwell']
+  const high = ['No movement today', 'Spotting', 'Fainting']
+  const moderate = [
+    'Less than usual', 'Headache', 'Swelling', 'Cramping',
+    'Shortness of breath', 'Sweating', 'Persistent sadness',
+    'Poorly', 'Unwell',
+  ]
   const values = Object.values(answers).flatMap((v) => (Array.isArray(v) ? v : [v]))
   if (values.some((v) => high.includes(v))) return 'high'
   if (values.some((v) => moderate.includes(v))) return 'moderate'

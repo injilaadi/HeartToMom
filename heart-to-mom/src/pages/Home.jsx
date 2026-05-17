@@ -97,7 +97,9 @@ export default function Home() {
   const greeting = greetingForHour(new Date().getHours())
 
   const due = profile?.due_date ? new Date(profile.due_date) : null
-  const pregnancy = calculatePregnancy(due)
+  // Postpartum either via explicit profile flag OR a due-date in the past.
+  const isPostpartum = !!profile?.is_postpartum || (due != null && due.getTime() < Date.now())
+  const pregnancy = isPostpartum ? null : calculatePregnancy(due)
   const wearableProvider = profile?.wearable_provider
   const syncLabel = latestVital
     ? `Last reading ${timeAgo(latestVital.recorded_at)}`
@@ -213,31 +215,62 @@ export default function Home() {
           <div>
             <p className="dash__greeting">{greeting}, {firstName}</p>
             <h1 className="dash__title">
-              {pregnancy
-                ? `Week ${pregnancy.currentWeek} · ${pregnancy.trimesterLabel} trimester`
-                : 'Welcome to HeartToMom'}
+              {isPostpartum
+                ? 'Congrats on your bundle of joy 🎉'
+                : pregnancy
+                  ? `Week ${pregnancy.currentWeek} · ${pregnancy.trimesterLabel} trimester`
+                  : 'Welcome to HeartToMom'}
             </h1>
           </div>
           <span className="pill pill--ok"><span className="pill__dot" />All readings normal</span>
         </div>
 
-        {/* ---------- Due-date card ---------- */}
+        {/* ---------- Due-date / delivery card ---------- */}
         <section className="card due">
           <div className="due__left">
-            <p className="card__eyebrow">DUE DATE</p>
+            <p className="card__eyebrow">{isPostpartum ? 'DELIVERY DATE' : 'DUE DATE'}</p>
             <p className="due__date">
               {due ? formatDueDate(due) : 'None scheduled'}
             </p>
           </div>
 
-          {due && pregnancy && (
+          {isPostpartum && (
+            <div className="due__right">
+              <p className="due__pct">Delivered ✓</p>
+            </div>
+          )}
+
+          {!isPostpartum && due && pregnancy && (
             <div className="due__right">
               <p className="due__weeks">{pregnancy.weeksToGo} weeks to go</p>
               <p className="due__pct">{pregnancy.percent}% there</p>
             </div>
           )}
 
-          {due && pregnancy && (
+          {isPostpartum && (
+            <div className="track">
+              <div className="track__bar">
+                <div className="track__fill" style={{ width: '100%' }} />
+                <span className="track__tick" style={{ left: '32.5%' }} aria-hidden />
+                <span className="track__tick" style={{ left: '67.5%' }} aria-hidden />
+                <span className="track__check" aria-hidden>✓</span>
+              </div>
+              <div className="track__labels">
+                <span>Trimester 1</span>
+                <span>Trimester 2</span>
+                <span>Trimester 3</span>
+                <span>Delivered</span>
+              </div>
+              <button
+                className="btn-primary track__postpartum-btn"
+                onClick={() => navigate('/prepare')}
+              >
+                Check out postpartum resources →
+              </button>
+            </div>
+          )}
+
+          {!isPostpartum && due && pregnancy && (
             <div className="track">
               <div className="track__bar">
                 <div className="track__fill" style={{ width: `${pregnancy.percent}%` }} />
