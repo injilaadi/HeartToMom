@@ -12,6 +12,16 @@
   letter-spacing: 0.02em;
 }
 
+.th__export-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.th__export-provider {
+  width: auto;
+  padding-inline: 18px;
+}
+
 .th__saved {
   margin: 12px 0 0;
   font-size: 13px;
@@ -91,4 +101,3 @@
   color: var(--muted);
   font-size: 14px;
 }
-
