@@ -27,6 +27,10 @@ const PROVIDERS = [
     cadence: 'Every 15 min',
     glyph: 'watch',
     syncs: ['heart rate', 'sleep', 'steps', 'blood pressure'],
+    bluetooth: {
+      namePrefixes: ['Apple Watch', 'Apple'],
+      services: ['heart_rate', 'battery_service', 'device_information'],
+    },
   },
   {
     id: 'oura',
@@ -155,7 +159,7 @@ export default function SyncWearable() {
     setFlowStep('permissions')
   }
 
-  const syncDemoProviderNow = async (providerName) => {
+  const syncConnectedProviderNow = async (providerName) => {
     await saveConnection(providerName, { importMockVitals: true })
     await refreshProfile()
   }
@@ -186,13 +190,6 @@ export default function SyncWearable() {
     setFlowStep('pairing')
 
     try {
-      if (flowProvider.id === 'fitbit' || flowProvider.id === 'apple') {
-        setPairedDeviceName(`${flowProvider.name} demo connection`)
-        setSyncProgress(12)
-        setFlowStep('syncing')
-        return
-      }
-
       const device = await requestBluetoothDevice(flowProvider)
       setPairedDeviceName(device.name || flowProvider.name)
       setSyncProgress(12)
@@ -306,7 +303,7 @@ export default function SyncWearable() {
 
                   <button
                     className={`sw__btn ${isConnected ? 'sw__btn--connected' : ''}`}
-                    onClick={() => canSyncConnectedDemo ? syncDemoProviderNow(provider.name) : beginConnect(provider)}
+                    onClick={() => canSyncConnectedDemo ? syncConnectedProviderNow(provider.name) : beginConnect(provider)}
                     disabled={isLoading || isComingSoon || (isConnected && !canSyncConnectedDemo)}
                   >
                     {isComingSoon
