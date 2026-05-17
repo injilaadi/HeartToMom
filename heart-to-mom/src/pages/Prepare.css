@@ -105,6 +105,8 @@
   display: flex;
   flex-direction: column;
   cursor: pointer;
+  text-decoration: none;
+  color: inherit;
   transition: transform 120ms ease, box-shadow 120ms ease;
 }
 

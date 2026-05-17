@@ -10,7 +10,6 @@ const STEPS = [
   { key: 'medical',   label: 'Medical history' },
   { key: 'pregnancy', label: 'Pregnancy details' },
   { key: 'lifestyle', label: 'Lifestyle' },
-  { key: 'wearable',  label: 'Wearable' },
 ]
 
 const RACE_OPTIONS = [
@@ -40,7 +39,6 @@ const EXERCISE_OPTIONS = ['Never', '1–2 days / week', '3–5 days / week', 'Da
 const SMOKING_OPTIONS = ['Never', 'Former smoker', 'Current smoker']
 const ALCOHOL_OPTIONS = ['None during pregnancy', 'Occasional', 'Regular']
 const DIET_OPTIONS = ['No restrictions', 'Vegetarian', 'Vegan', 'Pescatarian', 'Gluten-free', 'Other']
-const WEARABLE_OPTIONS = ['Apple Watch', 'Fitbit', 'Garmin', 'Oura Ring', 'Whoop', 'None — skip for now']
 
 const EMPTY = {
   full_name: '', date_of_birth: '', pronouns: '',
@@ -49,7 +47,6 @@ const EMPTY = {
   conditions: [], allergies: [], medications: '', family_history: [],
   due_date: '', last_period: '', prior_pregnancies: '', complications: [],
   exercise_frequency: '', smoking_status: '', alcohol_use: '', diet_pattern: '',
-  wearable_provider: '',
 }
 
 export default function Onboarding() {
@@ -223,7 +220,6 @@ export default function Onboarding() {
           {step === 1 && <MedicalStep  form={form} update={update} toggle={toggle} />}
           {step === 2 && <PregnancyStep form={form} update={update} toggle={toggle} />}
           {step === 3 && <LifestyleStep form={form} update={update} />}
-          {step === 4 && <WearableStep  form={form} update={update} />}
         </section>
 
         {error && <div className="banner banner--error">{error}</div>}
@@ -443,26 +439,6 @@ function LifestyleStep({ form, update }) {
           single
         />
       </Field>
-    </>
-  )
-}
-
-function WearableStep({ form, update }) {
-  return (
-    <>
-      <SectionHead icon="watch" title="Connect a wearable" />
-      <p className="onb-step__lede">
-        We use heart rate and blood pressure data to detect early warning signs.
-        You can skip this and connect later from settings.
-      </p>
-
-      <PillGroup
-        options={WEARABLE_OPTIONS}
-        selected={form.wearable_provider ? [form.wearable_provider] : []}
-        onToggle={(v) => update({ wearable_provider: form.wearable_provider === v ? '' : v })}
-        single
-        big
-      />
     </>
   )
 }

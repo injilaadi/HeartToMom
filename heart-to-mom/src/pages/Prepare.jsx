@@ -57,7 +57,7 @@ const POSTS = [
     read: '7 min read',
     color: 'green',
     link: 'https://www.hopkinsmedicine.org/health/wellness-and-prevention/nutrition-during-pregnancy',
-    image: 'https://www.hopkinsmedicine.org/-/media/images/health/3_-wellness/fertility-pregnancy-and-childbirth/pregnant-woman-cutting-fruit-teaser.jpg?h=286&iar=0&mh=300&mw=500&w=500&hash=5B9DC89207D9DAB68718BDD7DAC325C5'
+    image: 'https://images.unsplash.com/photo-1490818387583-1baba5e638af?auto=format&fit=crop&w=800&q=80'
   },
   {
     id: 4,

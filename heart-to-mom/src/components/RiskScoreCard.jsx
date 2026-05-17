@@ -11,7 +11,7 @@ export default function RiskScoreCard({ assessment }) {
 
   const level = assessment.overall_risk
   const score = assessment.overall_score
-  const conditions = assessment.conditions ?? []
+  const conditions = sortConditions(assessment.conditions ?? [])
 
   return (
     <section className="card rs">
@@ -186,3 +186,22 @@ function ScoreRing({ score, level }) {
 }
 
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
+
+// Preferred display order — Cardiovascular always first. Anything not in the
+// list keeps its relative position after the known ones.
+const CONDITION_ORDER = [
+  'Cardiovascular disease',
+  'Preeclampsia',
+  'Gestational diabetes',
+  'Preterm labor',
+  'Stillbirth',
+  'Postpartum depression',
+]
+
+function sortConditions(list) {
+  const rank = (name) => {
+    const i = CONDITION_ORDER.findIndex((known) => name?.toLowerCase().includes(known.toLowerCase()))
+    return i === -1 ? CONDITION_ORDER.length : i
+  }
+  return [...list].sort((a, b) => rank(a.name) - rank(b.name))
+}
