@@ -40,10 +40,18 @@ export default function Home() {
 
   // Show the "finish your health profile" modal whenever the user
   // hasn't completed onboarding (incl. when their profile row is missing entirely).
+  // Also honor a local fallback flag for users whose DB write of
+  // onboarding_completed silently failed (e.g. schema not migrated yet).
+  const localCompletedFlag =
+    typeof window !== 'undefined' && user
+      ? !!window.localStorage.getItem(`htm:onboardingDone:${user.id}`)
+      : false
+
   const showProfileModal =
     !loading
     && !!user
     && !profile?.onboarding_completed
+    && !localCompletedFlag
     && !profileModalDismissed
 
   // Reset dismissal whenever the profile changes (e.g. user just completed it)

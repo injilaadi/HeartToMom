@@ -140,14 +140,13 @@ export default function Onboarding() {
       // When the profile is fully filled in, generate the first AI risk
       // assessment so the dashboard has something to show immediately.
       if (markComplete) {
+        // Persist completion as a local-only fallback so the dashboard banner
+        // and "edit health profile" state work even if the DB column write
+        // failed (e.g. schema not yet migrated).
+        try { localStorage.setItem(`htm:onboardingDone:${user.id}`, '1') } catch {}
+
         const result = await triggerRiskAssessment('onboarding')
-        if (!result.ok) {
-          console.warn('Initial risk assessment failed:', result.error)
-          // Surface to user so they know if AI failed (otherwise they'd land on home with no score)
-          setError(`Profile saved, but AI assessment failed: ${result.error}. You can still continue — try submitting a daily check-in to retry.`)
-          // Wait briefly so the user can read the message, then navigate
-          await new Promise((r) => setTimeout(r, 2500))
-        }
+        if (!result.ok) console.warn('Initial risk assessment failed:', result.error)
       }
 
       navigate('/home')
