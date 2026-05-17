@@ -9,6 +9,8 @@ import TrackHealth from './pages/TrackHealth.jsx'
 import SyncWearable from './pages/SyncWearable.jsx'
 import Prepare from './pages/Prepare.jsx'
 import { AuthProvider } from './lib/AuthContext.jsx'
+import ProtectedRoute from './lib/ProtectedRoute.jsx'
+import Chatbot from './components/Chatbot'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
