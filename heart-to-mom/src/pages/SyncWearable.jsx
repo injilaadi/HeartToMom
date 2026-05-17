@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import NavBar from '../components/NavBar.jsx'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -7,19 +6,6 @@ import './pages-common.css'
 import './SyncWearable.css'
 
 const PROVIDERS = [
-  {
-    id: 'apple',
-    name: 'Apple Watch',
-    desc: 'Heart rate, sleep, activity, and blood pressure when paired with a cuff.',
-    signal: 'Best for daily vitals',
-    cadence: 'Every 15 min',
-    glyph: 'watch',
-    syncs: ['heart rate', 'sleep', 'steps', 'blood pressure'],
-    bluetooth: {
-      namePrefixes: ['Apple Watch', 'Apple'],
-      services: ['heart_rate', 'battery_service', 'device_information'],
-    },
-  },
   {
     id: 'fitbit',
     name: 'Fitbit',
@@ -34,6 +20,16 @@ const PROVIDERS = [
     },
   },
   {
+    id: 'apple',
+    name: 'Apple Watch',
+    desc: 'Heart rate, sleep, activity, and blood pressure when paired with a cuff.',
+    signal: 'Best for daily vitals',
+    cadence: 'Every 15 min',
+    glyph: 'watch',
+    syncs: ['heart rate', 'sleep', 'steps', 'blood pressure'],
+    implemented: false,
+  },
+  {
     id: 'oura',
     name: 'Oura Ring',
     desc: 'Temperature shifts, HRV, sleep readiness, and resting heart rate.',
@@ -41,10 +37,7 @@ const PROVIDERS = [
     cadence: 'Daily summary',
     glyph: 'ring',
     syncs: ['temperature', 'HRV', 'sleep', 'readiness'],
-    bluetooth: {
-      namePrefixes: ['Oura', 'oura'],
-      services: ['battery_service', 'device_information'],
-    },
+    implemented: false,
   },
   {
     id: 'manual',
@@ -66,7 +59,6 @@ const SYNC_PERMISSIONS = [
 
 export default function SyncWearable() {
   const { user } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
   const [profile, setProfile] = useState(null)
   const [connecting, setConnecting] = useState('')
   const [flowProvider, setFlowProvider] = useState(null)
@@ -129,30 +121,6 @@ export default function SyncWearable() {
   }, [user])
 
   useEffect(() => {
-    const fitbitStatus = searchParams.get('fitbit')
-    if (!fitbitStatus) return undefined
-
-    const message = searchParams.get('message')
-    const timer = window.setTimeout(() => {
-      if (fitbitStatus === 'connected') {
-        setError('')
-        refreshProfile()
-      } else {
-        setError(message || 'Could not connect Fitbit. Please try again.')
-      }
-
-      setSearchParams((current) => {
-        const next = new URLSearchParams(current)
-        next.delete('fitbit')
-        next.delete('message')
-        return next
-      }, { replace: true })
-    }, 0)
-
-    return () => window.clearTimeout(timer)
-  }, [refreshProfile, searchParams, setSearchParams])
-
-  useEffect(() => {
     if (flowStep !== 'syncing') return undefined
 
     const ticks = [34, 58, 82, 100]
@@ -178,10 +146,7 @@ export default function SyncWearable() {
     setFlowError(null)
     setPairedDeviceName('')
     setSyncProgress(0)
-    if (provider.id === 'fitbit') {
-      startFitbitOAuth(provider)
-      return
-    }
+    if (provider.implemented === false) return
     if (provider.id === 'manual') {
       setFlowProvider(provider)
       setFlowStep('manual')
@@ -191,49 +156,9 @@ export default function SyncWearable() {
     setFlowStep('permissions')
   }
 
-  const startFitbitOAuth = async (provider) => {
-    setConnecting(provider.name)
-    setError('')
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Please sign in again before connecting Fitbit.')
-
-      const res = await fetch('/api/fitbit-auth-url', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(body.error ?? `Fitbit authorization failed (${res.status})`)
-
-      window.location.assign(body.url)
-    } catch (err) {
-      setError(err.message ?? 'Could not start Fitbit connection.')
-      setConnecting('')
-    }
-  }
-
   const syncFitbitNow = async () => {
-    setConnecting('Fitbit')
-    setError('')
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('Please sign in again before syncing Fitbit.')
-
-      const res = await fetch('/api/fitbit-sync', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(body.error ?? `Fitbit sync failed (${res.status})`)
-
-      await refreshProfile()
-    } catch (err) {
-      setError(err.message ?? 'Could not sync Fitbit data.')
-    } finally {
-      setConnecting('')
-    }
+    await saveConnection('Fitbit', { importMockVitals: true })
+    await refreshProfile()
   }
 
   const useManualFallback = () => {
@@ -262,6 +187,13 @@ export default function SyncWearable() {
     setFlowStep('pairing')
 
     try {
+      if (flowProvider.id === 'fitbit') {
+        setPairedDeviceName('Fitbit demo connection')
+        setSyncProgress(12)
+        setFlowStep('syncing')
+        return
+      }
+
       const device = await requestBluetoothDevice(flowProvider)
       setPairedDeviceName(device.name || flowProvider.name)
       setSyncProgress(12)
@@ -348,6 +280,7 @@ export default function SyncWearable() {
               const isConnected = connected === provider.name
               const isLoading = connecting === provider.name
               const canSyncConnectedFitbit = isConnected && provider.id === 'fitbit'
+              const isComingSoon = provider.implemented === false
               return (
                 <article key={provider.id} className={`sw__card ${isConnected ? 'is-connected' : ''}`}>
                   <div className="sw__head">
@@ -375,9 +308,11 @@ export default function SyncWearable() {
                   <button
                     className={`sw__btn ${isConnected ? 'sw__btn--connected' : ''}`}
                     onClick={() => canSyncConnectedFitbit ? syncFitbitNow() : beginConnect(provider)}
-                    disabled={isLoading || (isConnected && !canSyncConnectedFitbit)}
+                    disabled={isLoading || isComingSoon || (isConnected && !canSyncConnectedFitbit)}
                   >
-                    {isLoading
+                    {isComingSoon
+                      ? 'To be implemented'
+                      : isLoading
                       ? (canSyncConnectedFitbit ? 'Syncing...' : 'Connecting...')
                       : canSyncConnectedFitbit
                         ? 'Sync now'

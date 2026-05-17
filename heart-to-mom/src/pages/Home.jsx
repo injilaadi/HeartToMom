@@ -94,8 +94,11 @@ export default function Home() {
   // previous account's locally-added or locally-deleted appointments don't
   // bleed into the next session.
   useEffect(() => {
-    setLocalAppointments([])
-    setDeletedAppointmentIds(new Set())
+    const timer = window.setTimeout(() => {
+      setLocalAppointments([])
+      setDeletedAppointmentIds(new Set())
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [user?.id])
 
   const firstName =
