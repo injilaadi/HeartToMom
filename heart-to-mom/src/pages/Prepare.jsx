@@ -5,6 +5,29 @@ import { supabase } from '../lib/supabase.js'
 import './pages-common.css'
 import './Prepare.css'
 
+const HEALTH_INFO_CARDS = [
+  {
+    title: 'Shortness of breath',
+    desc: 'Can be common in pregnancy, but persistent or sudden breathlessness may indicate strain on the heart or lungs and should be monitored.',
+  },
+  {
+    title: 'Swelling in legs',
+    desc: 'Mild swelling is normal in pregnancy, but sudden or severe swelling could relate to circulation or blood pressure changes.',
+  },
+  {
+    title: 'Chest discomfort',
+    desc: 'Occasional discomfort can happen due to physical changes, but chest pain should always be evaluated by a medical professional.',
+  },
+  {
+    title: 'Rapid heartbeat',
+    desc: 'Heart rate can increase during pregnancy, but consistent palpitations may signal stress or cardiovascular changes.',
+  },
+  {
+    title: 'Fatigue',
+    desc: 'Very common in pregnancy, but extreme fatigue may sometimes indicate anemia or other underlying conditions.',
+  },
+]
+
 const POSTS = [
   {
     id: 1,
@@ -14,6 +37,7 @@ const POSTS = [
     read: '6 min read',
     color: 'rose',
     link: 'https://www.babylist.com/hello-baby/how-to-write-a-birth-plan?msockid=01ed304136296ec034c0261c37f46f60',
+    image: 'https://images.babylist.com/image/upload/f_auto,q_auto:best,c_scale,w_1536/v1702413582/hello-baby/howto_write_birthplan_header.jpg',
   },
   {
     id: 2,
@@ -22,7 +46,8 @@ const POSTS = [
     excerpt: 'Pack early so you can grab and go. We organized the list by who uses it: you, baby, partner.',
     read: '8 min read',
     color: 'cream',
-    link: 'https://www.thebump.com/a/checklist-packing-a-hospital-bag'
+    link: 'https://www.thebump.com/a/checklist-packing-a-hospital-bag',
+    image: 'https://images.ctfassets.net/6m9bd13t776q/2IQXluIQy0RMxAMVfaI8qS/43fb18a7c2bc490820f5f03c77428506/hospital-bag-checklist-update-Stocksy-4118966.png?fm=webp&q=90'
   },
   {
     id: 3,
@@ -31,7 +56,8 @@ const POSTS = [
     excerpt: 'Healthy pregnancy nutrition supports baby development and maternal health.',
     read: '7 min read',
     color: 'green',
-    link: 'https://www.hopkinsmedicine.org/health/wellness-and-prevention/nutrition-during-pregnancy'
+    link: 'https://www.hopkinsmedicine.org/health/wellness-and-prevention/nutrition-during-pregnancy',
+    image: 'https://www.hopkinsmedicine.org/-/media/images/health/3_-wellness/fertility-pregnancy-and-childbirth/pregnant-woman-cutting-fruit-teaser.jpg?h=286&iar=0&mh=300&mw=500&w=500&hash=5B9DC89207D9DAB68718BDD7DAC325C5'
   },
   {
     id: 4,
@@ -41,6 +67,7 @@ const POSTS = [
     read: '7 min read',
     color: 'rose',
     link: 'https://neurolaunch.com/emotional-support-during-pregnancy/',
+    image: 'https://neurolaunch.com/wp-content/uploads/2024/10/emotional-support-during-pregnancy-essential-strategies-for-a-healthy-journey.webp'
   },
   {
     id: 5,
@@ -49,7 +76,8 @@ const POSTS = [
     excerpt: 'The first days with a newborn focus on feeding, sleep, and learning your baby’s cues.',
     read: '6 min read',
     color: 'cream',
-    link: 'https://www.osfhealthcare.org/blog/first-days-of-newborn-care'
+    link: 'https://www.osfhealthcare.org/blog/first-days-of-newborn-care',
+    image: 'https://osf-blog.live.imagescape.com/blog/wp-content/uploads/2024/02/shutterstock_1377908249.jpg'
   },
   {
     id: 6,
@@ -58,7 +86,8 @@ const POSTS = [
     excerpt: 'Recovery comes with physical healing, hormonal shifts, and emotional changes.',
     read: '7 min read',
     color: 'green',
-    link: 'https://my.clevelandclinic.org/health/articles/postpartum'
+    link: 'https://my.clevelandclinic.org/health/articles/postpartum',
+    image: 'https://my.clevelandclinic.org/-/scassets/images/org/health/articles/postpartum'
   },
 ]
 
@@ -90,6 +119,24 @@ export default function Prepare() {
           </p>
         </header>
 
+        <section className="pr__info-strip">
+          <h2 className="pr__info-title">Health awareness signals</h2>
+
+          <div className="pr__info-scroll">
+            {HEALTH_INFO_CARDS.map((card, idx) => (
+              <div key={idx} className="pr__info-card">
+                <h3>{card.title}</h3>
+                <p>{card.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+
+
+
+
+
         <div className="pr__grid">
           {POSTS.map((p) => (
             <a
@@ -100,6 +147,11 @@ export default function Prepare() {
               className="card pr__post"
             >
               <div className={`pr__cover pr__cover--${p.color}`} aria-hidden>
+                <img
+                  src={p.image || 'https://via.placeholder.com/600x400?text=No+Image'}
+                  alt={p.category}
+                  className="pr__image"
+                />
                 <span className="pr__cover-label">{p.category}</span>
               </div>
 
@@ -120,4 +172,3 @@ export default function Prepare() {
     </div>
   )
 }
-
