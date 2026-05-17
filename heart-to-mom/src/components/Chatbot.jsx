@@ -36,40 +36,36 @@ export default function Chatbot() {
         const shouldRemind = !checkedInToday && !reminderGiven
         if (shouldRemind) setReminderGiven(true)
 
-        const groqMessages = newMessages.filter((m, i) => !(m.role === 'assistant' && i === 0))
+        const geminiMessages = newMessages.filter((m, i) => !(m.role === 'assistant' && i === 0))
 
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
-            },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    {
-                        role: 'system', content: `You are a concise, caring assistant for HeartToMom, a pregnancy and maternal heart health app.
+        const systemPrompt = `You are a concise, caring assistant for HeartToMom, a pregnancy and maternal heart health app.
 Be warm but brief — no filler phrases like "Of course!", "Great question!", or "I'm here for you!". Get straight to the point.
 Use plain language. If a response is more than 4 sentences, add spacing between paragraphs.
 
-${shouldRemind ? 'At the start of your response, add one short sentence reminding the user to complete their daily check-in if they haven\'t yet. Do not repeat this reminder again.' : ''}
+${shouldRemind ? 'At the start of your response, add one short sentence reminding the user to complete their daily check-in. Do not repeat this reminder again.' : ''}
 
 Never downplay symptoms. Validate first, then inform. For serious symptoms (heavy bleeding, chest pain, severe headache, no fetal movement, sudden swelling), tell them to contact their provider or go to the ER immediately.
 
 You support, you do not diagnose.`
-                    },
-                    ...groqMessages
-                ],
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system_instruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                contents: geminiMessages.map(m => ({
+                    role: m.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: m.content }]
+                })),
             }),
         })
         const data = await res.json()
-        setMessages([...newMessages, { role: 'assistant', content: data.choices[0].message.content }])
+        console.log('gemini response:', data)
+        setMessages([...newMessages, { role: 'assistant', content: data.candidates[0].content.parts[0].text }])
         setLoading(false)
     }
-
-    // Only show the assistant for signed-in users
-    if (authLoading || !user) return null
-
     return (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
             {open && (
@@ -78,7 +74,7 @@ You support, you do not diagnose.`
                         <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14 }}>♥</div>
                         <div>
                             <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>HeartToMom Assistant</div>
-                            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>Powered by Groq AI</div>
+                            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>Powered by Gemini AI</div>
                         </div>
                     </div>
                     <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--cream-50)', minHeight: 200, maxHeight: 300, overflowY: 'auto' }}>
