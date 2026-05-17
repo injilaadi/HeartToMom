@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import NavBar from '../components/NavBar.jsx'
 import RiskScoreCard from '../components/RiskScoreCard.jsx'
+import RiskTrendChart from '../components/RiskTrendChart.jsx'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
 import { triggerRiskAssessment } from '../lib/useRiskAssessment.js'
@@ -21,6 +22,7 @@ export default function TrackHealth() {
   const { user } = useAuth()
   const [profile, setProfile] = useState(null)
   const [latestAssessment, setLatestAssessment] = useState(null)
+  const [trendAssessments, setTrendAssessments] = useState([])
   const [latestCheckIn, setLatestCheckIn] = useState(null)
   const [answers, setAnswers] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -36,6 +38,15 @@ export default function TrackHealth() {
     supabase.from('risk_assessments').select('*').eq('user_id', user.id)
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
       .then(({ data }) => setLatestAssessment(data ?? null))
+
+    // Fetch the last 30 days of assessments for the trend chart (oldest → newest)
+    const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    supabase.from('risk_assessments')
+      .select('created_at, overall_score, overall_risk')
+      .eq('user_id', user.id)
+      .gte('created_at', THIRTY_DAYS_AGO)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setTrendAssessments(data ?? []))
 
     // Pull the most recent check-in. If it's within the 12-hour cooldown,
     // pre-fill the form with its answers and switch to edit mode.
@@ -126,6 +137,7 @@ export default function TrackHealth() {
 
         {/* Risk score breakdown — donut + factor bars driven by the latest AI assessment */}
         <RiskScoreCard assessment={latestAssessment} />
+
         <p className="th__disclaimer">
           Powered by Gemini AI · Always consult your provider.
         </p>
@@ -208,6 +220,9 @@ export default function TrackHealth() {
             )}
           </section>
         </div>
+
+        {/* 30-day trend line — placed last so users see it after submitting */}
+        <RiskTrendChart assessments={trendAssessments} />
       </main>
     </div>
   )

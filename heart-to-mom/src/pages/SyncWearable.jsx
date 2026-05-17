@@ -27,10 +27,7 @@ const PROVIDERS = [
     cadence: 'Every 15 min',
     glyph: 'watch',
     syncs: ['heart rate', 'sleep', 'steps', 'blood pressure'],
-    bluetooth: {
-      namePrefixes: ['Apple Watch', 'Apple'],
-      services: ['heart_rate', 'battery_service', 'device_information'],
-    },
+    implemented: false,
   },
   {
     id: 'oura',
@@ -123,6 +120,25 @@ export default function SyncWearable() {
     return () => { cancelled = true }
   }, [user])
 
+  // Handle the redirect back from Fitbit's OAuth flow.
+  // Callback redirects to /sync-wearable?fitbit=connected (or error&message=…)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const status = params.get('fitbit')
+    if (!status) return
+
+    if (status === 'connected') {
+      refreshProfile()
+      setError('')
+    } else if (status === 'error') {
+      setError(params.get('message') ?? 'Fitbit connection failed.')
+    }
+
+    // Clean the URL so the banner doesn't reappear on every render
+    window.history.replaceState({}, '', window.location.pathname)
+  }, [refreshProfile])
+
   useEffect(() => {
     if (flowStep !== 'syncing') return undefined
 
@@ -155,8 +171,39 @@ export default function SyncWearable() {
       setFlowStep('manual')
       return
     }
+    if (provider.id === 'fitbit') {
+      connectFitbitOAuth()
+      return
+    }
     setFlowProvider(provider)
     setFlowStep('permissions')
+  }
+
+  // Fetches a Fitbit OAuth URL from our serverless function and redirects.
+  // Fitbit's permission page → callback → /sync-wearable?fitbit=connected
+  const connectFitbitOAuth = async () => {
+    setConnecting('Fitbit')
+    setError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Please sign in first.')
+
+      const res = await fetch('/api/fitbit-auth-url', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const body = await res.json()
+      if (!res.ok || !body.url) {
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      window.location.assign(body.url)
+    } catch (err) {
+      setError(err.message ?? 'Could not start Fitbit authorization.')
+      setConnecting('')
+    }
   }
 
   const syncConnectedProviderNow = async (providerName) => {
