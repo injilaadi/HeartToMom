@@ -115,7 +115,7 @@ export default function Prepare() {
           <p className="page__eyebrow">RESOURCES</p>
           <h1 className="page__title">Prepare for motherhood</h1>
           <p className="page__lede">
-            Short reads picked for your trimester, plus a focused checklist for what to do next.
+            Personally picked articles by our team.
           </p>
         </header>
 

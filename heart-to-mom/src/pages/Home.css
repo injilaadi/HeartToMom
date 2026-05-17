@@ -245,6 +245,7 @@
 }
 
 .cal__day {
+  position: relative;
   height: 36px;
   display: grid;
   place-items: center;
@@ -256,6 +257,25 @@
 }
 
 .cal__day--muted { color: var(--muted-2); opacity: 0.55; }
+
+/* Small dot under the day number to mark "today" */
+.cal__day--today::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--rose-500);
+}
+/* On filled-appointment days, swap the dot color to white so it stays visible */
+.cal__day--today.cal__day--required::after,
+.cal__day--today.cal__day--normal::after,
+.cal__day--today.cal__day--suggested::after {
+  background: #fff;
+}
 
 .cal__day--required {
   background: var(--rose-500);
@@ -270,9 +290,22 @@
 }
 
 .cal__day--suggested {
-  background: var(--rose-200);
-  color: var(--ink);
+  background: #8aa37e;
+  color: #fff;
   font-weight: 600;
+}
+
+/* Recommended days show as an outlined ring, not a filled circle */
+.cal__day--rec,
+.cal__day--rec-urgent {
+  background: transparent;
+  font-weight: 600;
+  color: #4f3784;
+  box-shadow: inset 0 0 0 2px #66479e;
+}
+.cal__day--rec-urgent {
+  color: #7c3a3e;
+  box-shadow: inset 0 0 0 2px #b66565;
 }
 
 /* =========================== Appointment list ===================== */
@@ -344,6 +377,77 @@
 }
 .appt--required  .appt__bar { background: var(--rose-500); }
 .appt--suggested .appt__bar { background: #8aa37e; }
+
+/* AI recommendations get a distinct visual treatment: dashed bar + tinted background */
+.appt--rec,
+.appt--rec-urgent {
+  background: linear-gradient(0deg, rgba(102, 71, 158, 0.04), rgba(102, 71, 158, 0.04)), transparent;
+  border-radius: 10px;
+  padding: 14px 12px;
+  border-bottom: none;
+  margin: 4px 0;
+}
+
+.appt--rec       .appt__bar { background: repeating-linear-gradient(180deg, #66479e 0 6px, transparent 6px 10px); }
+.appt--rec-urgent .appt__bar { background: repeating-linear-gradient(180deg, #b66565 0 6px, transparent 6px 10px); }
+
+.appt__reason {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.appt__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.appt__add-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #66479e;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease, transform 120ms ease;
+}
+.appt__add-btn:hover { background: #553e85; transform: translateY(-1px); }
+
+.appt--rec-urgent .appt__add-btn { background: #b66565; }
+.appt--rec-urgent .appt__add-btn:hover { background: #9c4f4f; }
+
+.appt__delete-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--muted-2);
+  font-size: 20px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0 0 2px 0;
+  opacity: 0.6;
+  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+.appt:hover .appt__delete-btn { opacity: 1; }
+.appt__delete-btn:hover {
+  background: #fdecec;
+  color: #8a2b2b;
+}
+
+/* Distinct chip colors per type */
+.pill--rec        { background: rgba(102, 71, 158, 0.12); color: #4f3784; }
+.pill--rec-urgent { background: #f4d8da; color: #7c3a3e; }
 
 .appt__body { flex: 1; }
 .appt__title { margin: 0; font-weight: 600; color: var(--ink); }

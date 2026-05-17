@@ -22,10 +22,38 @@ const GOOGLE_SYNC_APPOINTMENTS = [
   { title: 'Blood pressure screening', provider: 'Google Calendar', daysFromNow: 13, hour: 14, required: true, suggested: false },
 ]
 
-const RECOMMENDED_APPOINTMENTS = [
-  { id: 'rec-bp', title: 'Blood pressure review', provider: 'Recommended', daysFromNow: 5, required: true, suggested: false },
-  { id: 'rec-ultrasound', title: 'Ultrasound follow-up', provider: 'Recommended', daysFromNow: 12, required: false, suggested: true },
-  { id: 'rec-birth-plan', title: 'Birth plan consult', provider: 'Recommended', daysFromNow: 21, required: false, suggested: true },
+// Per-condition recommendation templates. The function below picks ones that
+// match the latest AI risk assessment.
+const CONDITION_RECS = {
+  cardiovascular: {
+    high:     { title: 'Cardiology consult',           daysFromNow: 2,  hour: 10, urgent: true  },
+    moderate: { title: 'Heart-rate baseline visit',    daysFromNow: 10, hour: 10, urgent: false },
+  },
+  preeclampsia: {
+    high:     { title: 'Urgent BP monitoring visit',   daysFromNow: 2,  hour: 9,  urgent: true  },
+    moderate: { title: 'Blood pressure review',        daysFromNow: 7,  hour: 9,  urgent: false },
+  },
+  gestational: {
+    high:     { title: 'Glucose tolerance test',       daysFromNow: 3,  hour: 8,  urgent: true  },
+    moderate: { title: 'Glucose screening',            daysFromNow: 10, hour: 8,  urgent: false },
+  },
+  preterm: {
+    high:     { title: 'Preterm labor evaluation',     daysFromNow: 2,  hour: 11, urgent: true  },
+    moderate: { title: 'Cervical length check',        daysFromNow: 12, hour: 11, urgent: false },
+  },
+  stillbirth: {
+    high:     { title: 'Fetal monitoring (NST/BPP)',   daysFromNow: 1,  hour: 14, urgent: true  },
+    moderate: { title: 'Extra growth ultrasound',      daysFromNow: 10, hour: 14, urgent: false },
+  },
+  postpartum: {
+    high:     { title: 'Mental health check-in',       daysFromNow: 3,  hour: 13, urgent: true  },
+    moderate: { title: 'Prenatal counseling visit',    daysFromNow: 14, hour: 13, urgent: false },
+  },
+}
+
+// Always-available "evergreen" recs shown when AI has nothing to flag.
+const EVERGREEN_RECS = [
+  { id: 'evergreen-prenatal', title: 'Routine prenatal checkup', daysFromNow: 14, hour: 10, urgent: false },
 ]
 
 export default function Home() {
@@ -34,6 +62,7 @@ export default function Home() {
   const { profile, appointments, latestVital, latestCheckIn, latestAssessment, loading } = useDashboardData()
   const [profileModalDismissed, setProfileModalDismissed] = useState(false)
   const [localAppointments, setLocalAppointments] = useState([])
+  const [deletedAppointmentIds, setDeletedAppointmentIds] = useState(() => new Set())
   const [appointmentModalOpen, setAppointmentModalOpen] = useState(false)
   const [appointmentSyncing, setAppointmentSyncing] = useState(false)
   const [appointmentError, setAppointmentError] = useState('')
@@ -75,10 +104,17 @@ export default function Home() {
     : wearableProvider
       ? 'Waiting for first reading'
       : 'Not connected'
-  const recommendedAppointments = buildRecommendedAppointments()
-  const calendarAppointments = mergeAppointments(appointments, localAppointments, recommendedAppointments)
+  const recommendedAppointments = buildRecommendedAppointments(latestAssessment)
+  const visibleSupabaseAppointments = (appointments ?? []).filter((a) => !deletedAppointmentIds.has(a.id))
+  const visibleLocalAppointments    = localAppointments.filter((a) => !deletedAppointmentIds.has(a.id))
+  const calendarAppointments = mergeAppointments(visibleSupabaseAppointments, visibleLocalAppointments, recommendedAppointments)
   const bookedAppointments = calendarAppointments.filter((appt) => !appt.recommended)
-  const recommendedUpcoming = calendarAppointments.filter((appt) => appt.recommended)
+  // Once a recommendation has been added to the calendar (matched by title),
+  // hide it from the "Recommended by AI" section.
+  const bookedTitles = new Set(bookedAppointments.map((a) => a.title?.toLowerCase()))
+  const recommendedUpcoming = calendarAppointments.filter(
+    (appt) => appt.recommended && !bookedTitles.has(appt.title?.toLowerCase())
+  )
 
   const addAppointment = async (payload) => {
     setAppointmentError('')
@@ -100,6 +136,36 @@ export default function Home() {
 
     setLocalAppointments((current) => [...current, data ?? { ...appointment, id: `local-${Date.now()}` }])
     return true
+  }
+
+  // Delete a booked appointment from Supabase + local state.
+  const deleteAppointment = async (appt) => {
+    setAppointmentError('')
+    if (!window.confirm(`Delete "${appt.title}"?`)) return
+
+    // Try to delete from Supabase first (only if it has a real id)
+    if (appt.id && !String(appt.id).startsWith('local-') && !String(appt.id).startsWith('google-')) {
+      const { error } = await supabase.from('appointments').delete().eq('id', appt.id)
+      if (error) {
+        setAppointmentError(error.message ?? 'Could not delete appointment.')
+        return
+      }
+    }
+    // Mark as deleted so it disappears from all merged lists immediately
+    setDeletedAppointmentIds((prev) => new Set(prev).add(appt.id))
+    // Also drop from localAppointments so the booked-titles set updates correctly
+    setLocalAppointments((current) => current.filter((a) => a.id !== appt.id))
+  }
+
+  // Add a recommended appointment to the user's in-app calendar (Supabase).
+  const addRecommendedToCalendar = async (rec) => {
+    await addAppointment({
+      title: rec.title,
+      provider: rec.provider ?? 'Recommended',
+      location: rec.location ?? '',
+      scheduled_at: rec.scheduled_at,
+      kind: rec.required ? 'required' : (rec.suggested ? 'suggested' : 'normal'),
+    })
   }
 
   const syncGoogleCalendar = async () => {
@@ -221,11 +287,13 @@ export default function Home() {
                     title="Booked"
                     empty="No booked appointments yet"
                     appointments={bookedAppointments.slice(0, 4)}
+                    onDelete={deleteAppointment}
                   />
                   <AppointmentSection
-                    title="Recommended appointments"
+                    title="Recommended by AI"
                     empty="No recommendations right now"
                     appointments={recommendedUpcoming.slice(0, 4)}
+                    onAdd={addRecommendedToCalendar}
                   />
                 </>
               )}
@@ -325,11 +393,20 @@ export default function Home() {
 
 /* ---------------------------------- Bits ---------------------------------- */
 
-function AppointmentRow({ appt }) {
+function AppointmentRow({ appt, onAdd, onDelete }) {
   const date = new Date(appt.scheduled_at)
   const monthDay = `${SHORT_MONTHS[date.getMonth()]} ${date.getDate()}`
   const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  const tag = appt.recommended ? 'suggested' : appt.required ? 'required' : appt.suggested ? 'suggested' : 'normal'
+
+  // Distinct visual tag — recommendations are no longer collapsed into 'suggested'
+  const tag = appt.recommended
+    ? (appt.required ? 'rec-urgent' : 'rec')
+    : appt.required ? 'required' : appt.suggested ? 'suggested' : 'normal'
+
+  const chipLabel =
+    tag === 'rec-urgent' ? 'AI · Urgent' :
+    tag === 'rec'        ? 'AI · Recommended' :
+    capitalize(tag)
 
   return (
     <li className={`appt appt--${tag}`}>
@@ -339,15 +416,38 @@ function AppointmentRow({ appt }) {
         <p className="appt__meta">
           {monthDay} · {time}{appt.provider ? ` · ${appt.provider}` : appt.location ? ` · ${appt.location}` : ''}
         </p>
+        {appt.recommended && appt.reason && (
+          <p className="appt__reason">{appt.reason}</p>
+        )}
       </div>
-      {(tag !== 'normal' || appt.recommended) && (
-        <span className={`pill pill--${tag}`}>{appt.recommended ? 'Recommended' : capitalize(tag)}</span>
-      )}
+
+      <div className="appt__actions">
+        {(tag !== 'normal' || appt.recommended) && !appt.recommended && (
+          <span className={`pill pill--${tag}`}>{chipLabel}</span>
+        )}
+
+        {appt.recommended && onAdd && (
+          <button className="appt__add-btn" onClick={() => onAdd(appt)}>
+            Add to calendar
+          </button>
+        )}
+
+        {!appt.recommended && onDelete && (
+          <button
+            className="appt__delete-btn"
+            onClick={() => onDelete(appt)}
+            aria-label={`Delete ${appt.title}`}
+            title="Delete appointment"
+          >
+            ×
+          </button>
+        )}
+      </div>
     </li>
   )
 }
 
-function AppointmentSection({ title, empty, appointments }) {
+function AppointmentSection({ title, empty, appointments, onAdd, onDelete }) {
   return (
     <section className="appt-section">
       <div className="appt-section__head">
@@ -359,7 +459,7 @@ function AppointmentSection({ title, empty, appointments }) {
       ) : (
         <ul className="appt-list">
           {appointments.map((appt) => (
-            <AppointmentRow key={appt.id} appt={appt} />
+            <AppointmentRow key={appt.id} appt={appt} onAdd={onAdd} onDelete={onDelete} />
           ))}
         </ul>
       )}
@@ -519,7 +619,9 @@ function MonthCalendar({ appointments }) {
   for (const a of appointments) {
     const d = new Date(a.scheduled_at)
     if (d.getFullYear() !== year || d.getMonth() !== month) continue
-    const tag = a.required ? 'required' : a.suggested ? 'suggested' : 'normal'
+    const tag = a.recommended
+      ? (a.required ? 'rec-urgent' : 'rec')
+      : a.required ? 'required' : a.suggested ? 'suggested' : 'normal'
     const existing = dayTags[d.getDate()]
     if (!existing || rank(tag) > rank(existing)) dayTags[d.getDate()] = tag
   }
@@ -547,12 +649,18 @@ function MonthCalendar({ appointments }) {
       <div className="cal__grid">
         {cells.map((c, i) => {
           const tag = c.inMonth ? dayTags[c.day] : null
+          const isToday =
+            c.inMonth
+            && year === today.getFullYear()
+            && month === today.getMonth()
+            && c.day === today.getDate()
           return (
             <span
               key={i}
               className={[
                 'cal__day',
                 !c.inMonth && 'cal__day--muted',
+                isToday && 'cal__day--today',
                 tag && `cal__day--${tag}`,
               ].filter(Boolean).join(' ')}
             >
@@ -601,16 +709,53 @@ async function supabaseInsertAppointment(appointment) {
   }
 }
 
-function buildRecommendedAppointments() {
-  return RECOMMENDED_APPOINTMENTS.map((appt) => ({
-    id: appt.id,
-    title: appt.title,
-    provider: appt.provider,
-    scheduled_at: appointmentDate(appt.daysFromNow, 9).toISOString(),
-    required: appt.required,
-    suggested: appt.suggested,
-    recommended: true,
-  }))
+function buildRecommendedAppointments(latestAssessment) {
+  // Map each elevated condition to a concrete appointment suggestion.
+  const conditionRecs = []
+  for (const c of latestAssessment?.conditions ?? []) {
+    const key = matchConditionKey(c.name)
+    if (!key) continue
+    const tmpl = CONDITION_RECS[key]?.[c.risk_level]
+    if (!tmpl) continue
+    conditionRecs.push({
+      id: `rec-${key}-${c.risk_level}`,
+      title: tmpl.title,
+      provider: 'Recommended by AI',
+      reason: `Based on your ${c.risk_level} ${c.name} score`,
+      scheduled_at: appointmentDate(tmpl.daysFromNow, tmpl.hour).toISOString(),
+      required: tmpl.urgent,
+      suggested: !tmpl.urgent,
+      recommended: true,
+    })
+  }
+
+  // Fall back to evergreen recs if there's nothing risk-based to suggest
+  if (conditionRecs.length === 0) {
+    return EVERGREEN_RECS.map((appt) => ({
+      id: appt.id,
+      title: appt.title,
+      provider: 'Recommended',
+      reason: 'Routine pregnancy care',
+      scheduled_at: appointmentDate(appt.daysFromNow, appt.hour).toISOString(),
+      required: false,
+      suggested: true,
+      recommended: true,
+    }))
+  }
+
+  return conditionRecs
+}
+
+function matchConditionKey(name) {
+  if (!name) return null
+  const n = name.toLowerCase()
+  if (n.includes('cardiovascular')) return 'cardiovascular'
+  if (n.includes('preeclampsia'))   return 'preeclampsia'
+  if (n.includes('gestational') || n.includes('diabetes')) return 'gestational'
+  if (n.includes('preterm'))        return 'preterm'
+  if (n.includes('stillbirth'))     return 'stillbirth'
+  if (n.includes('postpartum') || n.includes('depression')) return 'postpartum'
+  return null
 }
 
 function mergeAppointments(...groups) {
@@ -636,6 +781,7 @@ function appointmentDate(daysFromNow, hour) {
 
 function rank(tag) { return tag === 'required' ? 3 : tag === 'suggested' ? 2 : 1 }
 function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
+
 
 function isCheckInRecent(checkIn) {
   if (!checkIn?.created_at) return false
