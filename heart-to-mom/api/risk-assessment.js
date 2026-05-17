@@ -84,6 +84,26 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid auth token' })
     }
 
+    // If there's a recent assessment (< 10 min old), reuse it instead of
+    // burning rate-limit quota on a fresh Gemini call.
+    const TEN_MIN_AGO = new Date(Date.now() - 10 * 60_000).toISOString()
+    const { data: recent } = await supabase
+      .from('risk_assessments')
+      .select('*')
+      .eq('user_id', user.id)
+      .gte('created_at', TEN_MIN_AGO)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (recent) {
+      return res.status(200).json({
+        ...recent,
+        cached: true,
+        generated_at: recent.created_at,
+      })
+    }
+
     const [{ data: profile }, { data: checkIns }, { data: vitals }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('check_ins').select('*').eq('user_id', user.id)
@@ -96,7 +116,7 @@ export default async function handler(req, res) {
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-lite',
       systemInstruction: SYSTEM_PROMPT,
       generationConfig: {
         responseMimeType: 'application/json',
@@ -105,7 +125,27 @@ export default async function handler(req, res) {
       },
     })
 
-    const result = await model.generateContent(prompt)
+    let result
+    try {
+      result = await model.generateContent(prompt)
+    } catch (err) {
+      const msg = err.message ?? String(err)
+      // Translate Gemini rate-limit errors into a clear 429 for the client.
+      if (/429|RESOURCE_EXHAUSTED|rate.?limit|quota/i.test(msg)) {
+        return res.status(429).json({
+          error: 'Gemini rate limit reached (15 requests/min on free tier). Wait ~60 seconds and try again.',
+        })
+      }
+      // 404 = bad model name; 401/403 = bad API key
+      if (/404|not found/i.test(msg)) {
+        return res.status(502).json({ error: `Gemini model unavailable: ${msg}` })
+      }
+      if (/401|403|API key|unauthorized/i.test(msg)) {
+        return res.status(502).json({ error: 'Gemini API key rejected. Check GEMINI_API_KEY env var.' })
+      }
+      throw err
+    }
+
     const text = result.response.text()
 
     let assessment
