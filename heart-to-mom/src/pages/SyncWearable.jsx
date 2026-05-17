@@ -7,6 +7,24 @@ import './SyncWearable.css'
 
 const PROVIDERS = [
   {
+    id: 'oura',
+    name: 'Oura Ring',
+    desc: 'Temperature shifts, HRV, sleep readiness, and resting heart rate.',
+    signal: 'Best for temperature',
+    cadence: 'Daily summary',
+    glyph: 'ring',
+    syncs: ['temperature', 'HRV', 'sleep', 'readiness'],
+  },
+  {
+    id: 'manual',
+    name: 'Manual entry',
+    desc: 'No wearable needed. Add blood pressure and heart rate by hand.',
+    signal: 'Best for cuff readings',
+    cadence: 'When logged',
+    glyph: 'pen',
+    syncs: ['blood pressure', 'heart rate', 'symptoms', 'notes'],
+  },
+  {
     id: 'fitbit',
     name: 'Fitbit',
     desc: 'Heart rate, sleep stages, activity minutes, and stress signals.',
@@ -14,10 +32,7 @@ const PROVIDERS = [
     cadence: 'Hourly',
     glyph: 'band',
     syncs: ['heart rate', 'sleep stages', 'activity', 'stress'],
-    bluetooth: {
-      namePrefixes: ['Fitbit', 'Charge', 'Sense', 'Versa', 'Inspire'],
-      services: ['heart_rate', 'battery_service', 'device_information'],
-    },
+    implemented: false,
   },
   {
     id: 'apple',
@@ -28,25 +43,6 @@ const PROVIDERS = [
     glyph: 'watch',
     syncs: ['heart rate', 'sleep', 'steps', 'blood pressure'],
     implemented: false,
-  },
-  {
-    id: 'oura',
-    name: 'Oura Ring',
-    desc: 'Temperature shifts, HRV, sleep readiness, and resting heart rate.',
-    signal: 'Best for temperature',
-    cadence: 'Daily summary',
-    glyph: 'ring',
-    syncs: ['temperature', 'HRV', 'sleep', 'readiness'],
-    implemented: false,
-  },
-  {
-    id: 'manual',
-    name: 'Manual entry',
-    desc: 'No wearable needed. Add blood pressure and heart rate by hand.',
-    signal: 'Best for cuff readings',
-    cadence: 'When logged',
-    glyph: 'pen',
-    syncs: ['blood pressure', 'heart rate', 'symptoms', 'notes'],
   },
 ]
 
@@ -120,20 +116,23 @@ export default function SyncWearable() {
     return () => { cancelled = true }
   }, [user])
 
-  // Handle the redirect back from Fitbit's OAuth flow.
-  // Callback redirects to /sync-wearable?fitbit=connected (or error&message=…)
+  // Handle the redirect back from Fitbit / Oura OAuth flow.
+  // Callback redirects to /sync-wearable?fitbit=connected (or ?oura=connected | ?fitbit=error&message=…)
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
     const params = new URLSearchParams(window.location.search)
-    const status = params.get('fitbit')
-    if (!status) return undefined
+    const fitbitStatus = params.get('fitbit')
+    const ouraStatus = params.get('oura')
+    const status = fitbitStatus ?? ouraStatus
+    const provider = fitbitStatus ? 'Fitbit' : ouraStatus ? 'Oura' : null
+    if (!status || !provider) return undefined
 
     const timer = window.setTimeout(() => {
       if (status === 'connected') {
         refreshProfile()
         setError('')
       } else if (status === 'error') {
-        setError(params.get('message') ?? 'Fitbit connection failed.')
+        setError(params.get('message') ?? `${provider} connection failed.`)
       }
 
       // Clean the URL so the banner doesn't reappear on every render
@@ -179,6 +178,10 @@ export default function SyncWearable() {
       connectFitbitOAuth()
       return
     }
+    if (provider.id === 'oura') {
+      connectOuraOAuth()
+      return
+    }
     setFlowProvider(provider)
     setFlowStep('permissions')
   }
@@ -206,6 +209,32 @@ export default function SyncWearable() {
       window.location.assign(body.url)
     } catch (err) {
       setError(err.message ?? 'Could not start Fitbit authorization.')
+      setConnecting('')
+    }
+  }
+
+  // Same flow but for Oura — POST to /api/oura-auth-url, redirect to Oura.
+  const connectOuraOAuth = async () => {
+    setConnecting('Oura Ring')
+    setError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Please sign in first.')
+
+      const res = await fetch('/api/oura-auth-url', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const body = await res.json()
+      if (!res.ok || !body.url) {
+        throw new Error(body.error ?? `HTTP ${res.status}`)
+      }
+      window.location.assign(body.url)
+    } catch (err) {
+      setError(err.message ?? 'Could not start Oura authorization.')
       setConnecting('')
     }
   }
