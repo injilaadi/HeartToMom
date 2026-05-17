@@ -43,23 +43,33 @@ const RISK_SCHEMA = {
   required: ['overall_risk', 'overall_score', 'summary', 'conditions', 'discuss_with_provider', 'disclaimer'],
 }
 
-const SYSTEM_PROMPT = `You are a maternal-health risk-assessment assistant for a pregnancy tracking app called HeartToMom.
-
-Your job: review a patient's health profile and recent check-in / vitals data, then produce a structured risk estimate for common pregnancy complications.
-
-Conditions you MUST assess in this exact order (always include all six, even if data is sparse — say "insufficient data" in reasoning if so):
+const PREGNANCY_CONDITIONS = `Conditions you MUST assess in this exact order (always include all six, even if data is sparse — say "insufficient data" in reasoning if so):
 1. Cardiovascular disease (pregnancy-related)
 2. Preeclampsia
 3. Gestational diabetes
 4. Preterm labor
 5. Stillbirth (risk factors only — never diagnose)
-6. Postpartum depression
+6. Postpartum depression`
+
+const POSTPARTUM_CONDITIONS = `The patient is POSTPARTUM (already delivered). Reframe the assessment around postpartum risks. Conditions you MUST assess in this exact order (always include all six, even if data is sparse — say "insufficient data" in reasoning if so):
+1. Postpartum cardiovascular disease (peripartum cardiomyopathy, late postpartum cardiac risk)
+2. Postpartum preeclampsia / hypertension (can occur up to 6 weeks postpartum)
+3. Postpartum hemorrhage / anemia (late bleeding, low iron)
+4. Postpartum depression
+5. Postpartum thyroiditis or other endocrine recovery issues
+6. Breastfeeding complications (mastitis, low supply) and pelvic / wound recovery`
+
+const buildSystemPrompt = ({ isPostpartum }) => `You are a maternal-health risk-assessment assistant for a pregnancy tracking app called HeartToMom.
+
+Your job: review a patient's health profile and recent check-in / vitals data, then produce a structured risk estimate.
+
+${isPostpartum ? POSTPARTUM_CONDITIONS : PREGNANCY_CONDITIONS}
 
 Rules:
 - Base every assessment on established medical risk factors (maternal age, BMI, BP trends, history, ethnicity-based risk where clinically established).
 - Cite specific data points from the patient (e.g., "BP 132/85 on 2026-05-10", "Family history includes hypertension", "Prior preeclampsia"). Never fabricate numbers.
 - If a key data point is missing, say so in 'data_points' (e.g., "No BP readings logged") rather than guessing.
-- recommendations should be actionable, balanced (lifestyle + clinical), and trimester-appropriate. Avoid alarmist language.
+- recommendations should be actionable, balanced (lifestyle + clinical), and ${isPostpartum ? 'postpartum-appropriate (consider lochia, recovery timeline, sleep deprivation, mental load).' : 'trimester-appropriate.'} Avoid alarmist language.
 - For EVERY condition, also list:
     common_symptoms — 4-6 typical early symptoms in plain patient-facing language
     warning_signs   — 3-5 RED-FLAG signs that warrant urgent medical attention (heavier bleeding, severe headache, etc.)
@@ -130,7 +140,7 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: buildSystemPrompt({ isPostpartum: !!profile?.is_postpartum }),
       generationConfig: {
         responseMimeType: 'application/json',
         responseSchema: RISK_SCHEMA,

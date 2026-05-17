@@ -188,14 +188,22 @@ function ScoreRing({ score, level }) {
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }
 
 // Preferred display order — Cardiovascular always first. Anything not in the
-// list keeps its relative position after the known ones.
+// list keeps its relative position after the known ones. Covers both the
+// pregnancy and postpartum condition naming.
 const CONDITION_ORDER = [
+  // pregnancy
   'Cardiovascular disease',
   'Preeclampsia',
   'Gestational diabetes',
   'Preterm labor',
   'Stillbirth',
   'Postpartum depression',
+  // postpartum-specific
+  'Postpartum cardiovascular',
+  'Postpartum preeclampsia',
+  'Postpartum hemorrhage',
+  'Postpartum thyroiditis',
+  'Breastfeeding',
 ]
 
 function sortConditions(list) {

@@ -90,6 +90,14 @@ export default function Home() {
     return () => window.clearTimeout(timer)
   }, [profile?.onboarding_completed])
 
+  // Reset per-user local state whenever the signed-in user changes, so a
+  // previous account's locally-added or locally-deleted appointments don't
+  // bleed into the next session.
+  useEffect(() => {
+    setLocalAppointments([])
+    setDeletedAppointmentIds(new Set())
+  }, [user?.id])
+
   const firstName =
     profile?.full_name?.split(' ')[0] ??
     user?.user_metadata?.full_name?.split(' ')[0] ??
@@ -109,7 +117,7 @@ export default function Home() {
     : wearableProvider
       ? 'Waiting for first reading'
       : 'Not connected'
-  const recommendedAppointments = buildRecommendedAppointments(latestAssessment)
+  const recommendedAppointments = buildRecommendedAppointments(latestAssessment, user?.id)
   const visibleSupabaseAppointments = (appointments ?? []).filter((a) => !deletedAppointmentIds.has(a.id))
   const visibleLocalAppointments    = localAppointments.filter((a) => !deletedAppointmentIds.has(a.id))
   const calendarAppointments = mergeAppointments(visibleSupabaseAppointments, visibleLocalAppointments, recommendedAppointments)
@@ -745,7 +753,12 @@ async function supabaseInsertAppointment(appointment) {
   }
 }
 
-function buildRecommendedAppointments(latestAssessment) {
+function buildRecommendedAppointments(latestAssessment, userId) {
+  // Don't generate recs at all without a user — prevents any cross-session leakage.
+  if (!userId) return []
+
+  const uid = String(userId).slice(0, 8) // short prefix is enough for React key uniqueness
+
   // Map each elevated condition to a concrete appointment suggestion.
   const conditionRecs = []
   for (const c of latestAssessment?.conditions ?? []) {
@@ -754,7 +767,7 @@ function buildRecommendedAppointments(latestAssessment) {
     const tmpl = CONDITION_RECS[key]?.[c.risk_level]
     if (!tmpl) continue
     conditionRecs.push({
-      id: `rec-${key}-${c.risk_level}`,
+      id: `rec-${uid}-${key}-${c.risk_level}`,
       title: tmpl.title,
       provider: 'Recommended by AI',
       reason: `Based on your ${c.risk_level} ${c.name} score`,
@@ -768,7 +781,7 @@ function buildRecommendedAppointments(latestAssessment) {
   // Fall back to evergreen recs if there's nothing risk-based to suggest
   if (conditionRecs.length === 0) {
     return EVERGREEN_RECS.map((appt) => ({
-      id: appt.id,
+      id: `rec-${uid}-${appt.id}`,
       title: appt.title,
       provider: 'Recommended',
       reason: 'Routine pregnancy care',
