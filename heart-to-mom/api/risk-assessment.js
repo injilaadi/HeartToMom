@@ -107,26 +107,16 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid auth token' })
     }
 
-    // If there's a recent assessment (< 10 min old), reuse it instead of
-    // burning rate-limit quota on a fresh Gemini call.
-    const TEN_MIN_AGO = new Date(Date.now() - 10 * 60_000).toISOString()
-    const { data: recent } = await supabase
-      .from('risk_assessments')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('created_at', TEN_MIN_AGO)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // Try to parse the trigger label from the request body (optional).
+    let triggeredBy = 'manual'
+    let bodyParsed = {}
+    try {
+      bodyParsed = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
+      if (bodyParsed.trigger) triggeredBy = String(bodyParsed.trigger).slice(0, 32)
+    } catch { /* ignore — keep default */ }
 
-    if (recent) {
-      return res.status(200).json({
-        ...recent,
-        cached: true,
-        generated_at: recent.created_at,
-      })
-    }
-
+    // Fetch the patient data first — we need profile.updated_at to decide
+    // whether the cache is still valid.
     const [{ data: profile }, { data: checkIns }, { data: vitals }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase.from('check_ins').select('*').eq('user_id', user.id)
@@ -134,6 +124,35 @@ export default async function handler(req, res) {
       supabase.from('vitals').select('*').eq('user_id', user.id)
         .order('recorded_at', { ascending: false }).limit(7),
     ])
+
+    // If there's a recent assessment (< 10 min old), reuse it — UNLESS the
+    // user's profile or latest check-in was updated AFTER it was generated,
+    // or the request was explicitly an onboarding trigger (profile change).
+    if (triggeredBy !== 'onboarding') {
+      const TEN_MIN_AGO = new Date(Date.now() - 10 * 60_000).toISOString()
+      const { data: recent } = await supabase
+        .from('risk_assessments')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('created_at', TEN_MIN_AGO)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const profileUpdated = profile?.updated_at ? new Date(profile.updated_at).getTime() : 0
+      const latestCheckInTs = checkIns?.[0]?.created_at ? new Date(checkIns[0].created_at).getTime() : 0
+      const cacheTs = recent?.created_at ? new Date(recent.created_at).getTime() : 0
+      const cacheIsStale =
+        cacheTs && (profileUpdated > cacheTs || latestCheckInTs > cacheTs)
+
+      if (recent && !cacheIsStale) {
+        return res.status(200).json({
+          ...recent,
+          cached: true,
+          generated_at: recent.created_at,
+        })
+      }
+    }
 
     const prompt = buildUserPrompt({ profile, checkIns: checkIns ?? [], vitals: vitals ?? [] })
 
@@ -183,13 +202,6 @@ export default async function handler(req, res) {
       check_ins_count: checkIns?.length ?? 0,
       vitals_count:    vitals?.length ?? 0,
     }
-
-    // Try to parse the trigger label from the request body (optional).
-    let triggeredBy = 'manual'
-    try {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-      if (body.trigger) triggeredBy = String(body.trigger).slice(0, 32)
-    } catch { /* ignore — keep default */ }
 
     // Persist this assessment so the dashboard + track-health pages can read it later.
     const { data: saved, error: saveErr } = await supabase
