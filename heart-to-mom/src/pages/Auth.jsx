@@ -51,6 +51,18 @@ export default function Auth() {
 
   const isLogin = mode === 'login'
 
+  // Switching tabs wipes the form so a half-typed login doesn't bleed into
+  // the create-account flow (and vice versa). Also clears any stale messages.
+  const switchMode = (next) => {
+    setMode(next)
+    setEmail('')
+    setPassword('')
+    setName('')
+    setShowPw(false)
+    setError('')
+    setInfo('')
+  }
+
   return (
     <div className="auth">
       {/* Left marketing panel */}
@@ -96,7 +108,7 @@ export default function Auth() {
               role="tab"
               aria-selected={isLogin}
               className={`tabs__btn ${isLogin ? 'is-active' : ''}`}
-              onClick={() => setMode('login')}
+              onClick={() => switchMode('login')}
             >
               Log in
             </button>
@@ -104,7 +116,7 @@ export default function Auth() {
               role="tab"
               aria-selected={!isLogin}
               className={`tabs__btn ${!isLogin ? 'is-active' : ''}`}
-              onClick={() => setMode('create')}
+              onClick={() => switchMode('create')}
             >
               Create account
             </button>
@@ -119,7 +131,11 @@ export default function Auth() {
               : 'Start tracking your pregnancy journey today.'}
           </p>
 
-          <form className="form" onSubmit={handleSubmit}>
+          <form
+            className="form"
+            onSubmit={handleSubmit}
+            autoComplete={isLogin ? 'on' : 'off'}
+          >
             {!isLogin && (
               <label className="field">
                 <span className="field__label">Full name</span>
@@ -130,6 +146,8 @@ export default function Auth() {
                     placeholder="Sarah Mitchell"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    autoComplete="off"
+                    name="signup-full-name"
                   />
                 </span>
               </label>
@@ -144,6 +162,8 @@ export default function Auth() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete={isLogin ? 'username' : 'off'}
+                  name={isLogin ? 'email' : 'signup-email'}
                 />
               </span>
             </label>
@@ -164,6 +184,8 @@ export default function Auth() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  name={isLogin ? 'password' : 'signup-password'}
                 />
                 <button
                   type="button"
@@ -210,7 +232,7 @@ export default function Auth() {
                 <button
                   type="button"
                   className="link-rose link-rose--bold"
-                  onClick={() => setMode('create')}
+                  onClick={() => switchMode('create')}
                 >
                   Create an account →
                 </button>
@@ -221,7 +243,7 @@ export default function Auth() {
                 <button
                   type="button"
                   className="link-rose link-rose--bold"
-                  onClick={() => setMode('login')}
+                  onClick={() => switchMode('login')}
                 >
                   Log in →
                 </button>
