@@ -13,7 +13,7 @@ const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
 const QUESTIONS = [
   { id: 'mood',     label: 'How are you feeling today?',    options: ['Great', 'Okay', 'Tired', 'Unwell'] },
   { id: 'movement', label: 'Have you felt baby movement?',  options: ['Yes, normal', 'Less than usual', 'No movement today', 'Postpartum (delivered)', 'N/A'] },
-  { id: 'symptoms', label: 'Any new symptoms? (select all that apply)', options: ['None', 'Headache', 'Swelling', 'Spotting', 'Cramping', 'Shortness of breath', 'Sweating', 'Fainting', 'Persistent sadness'], multi: true },
+  { id: 'symptoms', label: 'Any new symptoms? (select all that apply)', options: ['None', 'Headache', 'Nausea', 'Swelling', 'Spotting', 'Cramping', 'Shortness of breath', 'Sweating', 'Fainting', 'Persistent sadness'], multi: true },
   { id: 'sleep',    label: 'How did you sleep?',            options: ['Well', 'Okay', 'Poorly'] },
   { id: 'meds',     label: 'Took your prenatal today?',     options: ['Yes', 'Not yet', 'Forgot'] },
 ]

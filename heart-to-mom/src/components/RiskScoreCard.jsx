@@ -76,12 +76,16 @@ function FactorRow({ c }) {
 function ConditionDetails({ c }) {
   const actionSentence =
     c.risk_level === 'high'
-      ? 'Immediately call your healthcare provider.'
-      : 'Bring this up at your next appointment.'
+      ? '! URGENT: Immediately contact your health care provider or go see a doctor.'
+      : c.risk_level === 'moderate'
+        ? 'Bring this up at your next appointment.'
+        : null
 
   return (
     <div className={`rs__detail rs__detail--${c.risk_level}`}>
-      <p className={`rs__action rs__action--${c.risk_level}`}>{actionSentence}</p>
+      {actionSentence && (
+        <p className={`rs__action rs__action--${c.risk_level}`}>{actionSentence}</p>
+      )}
 
       {c.reasoning && (
         <div className="rs__detail-block">
