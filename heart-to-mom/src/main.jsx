@@ -59,6 +59,8 @@ createRoot(document.getElementById('root')).render(
               </ProtectedRoute>
             }
           />
+          {/* Catch-all: send anything else back to login (which will bounce to /home if signed in) */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
         <Chatbot />
       </AuthProvider>

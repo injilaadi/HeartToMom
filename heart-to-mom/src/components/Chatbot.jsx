@@ -3,7 +3,7 @@ import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
 
 export default function Chatbot() {
-    const { user } = useAuth()
+    const { user, loading: authLoading } = useAuth()
     const [checkedInToday, setCheckedInToday] = useState(false)
     const [reminderGiven, setReminderGiven] = useState(false)
     const [open, setOpen] = useState(false)
@@ -66,6 +66,9 @@ You support, you do not diagnose.`
         setMessages([...newMessages, { role: 'assistant', content: data.choices[0].message.content }])
         setLoading(false)
     }
+
+    // Only show the assistant for signed-in users
+    if (authLoading || !user) return null
 
     return (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>

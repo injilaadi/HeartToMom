@@ -29,8 +29,19 @@ export default function NavBar({ profile }) {
     }
   }, [open])
 
-  const fullName = profile?.full_name ?? user?.user_metadata?.full_name ?? ''
-  const initials = makeInitials(fullName, user?.email)
+  // If we somehow render with no signed-in user, don't render the navbar at all —
+  // a ProtectedRoute should be redirecting them, but rendering an empty avatar
+  // is worse than rendering nothing for the brief render before the redirect.
+  if (!user) return null
+
+  const fullName =
+    profile?.full_name
+    ?? user.user_metadata?.full_name
+    ?? user.user_metadata?.name
+    ?? user.email?.split('@')[0]
+    ?? ''
+  const initials = makeInitials(fullName, user.email)
+  const displayEmail = user.email ?? ''
 
   const handleSignOut = async () => {
     setOpen(false)
@@ -74,8 +85,10 @@ export default function NavBar({ profile }) {
         {open && (
           <div className="nav__menu" role="menu">
             <div className="nav__menu-head">
-              <p className="nav__menu-name">{fullName || 'Welcome'}</p>
-              {user?.email && <p className="nav__menu-email">{user.email}</p>}
+              <p className="nav__menu-name">{fullName || displayEmail || 'Account'}</p>
+              {displayEmail && fullName !== displayEmail && (
+                <p className="nav__menu-email">{displayEmail}</p>
+              )}
             </div>
             <button
               className="nav__menu-item"
