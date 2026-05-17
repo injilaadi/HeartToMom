@@ -24,6 +24,7 @@ export default function TrackHealth() {
   const [submitted, setSubmitted] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [assessmentSignal, setAssessmentSignal] = useState(0)
+  const [debugMsg, setDebugMsg] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -51,7 +52,12 @@ export default function TrackHealth() {
       const result = await triggerRiskAssessment('check_in')
       setAnalyzing(false)
 
-      if (!result.ok) console.warn('Risk assessment failed:', result.error)
+      if (!result.ok) {
+        console.warn('Risk assessment failed:', result.error)
+        setDebugMsg(`AI assessment failed: ${result.error}`)
+      } else {
+        setDebugMsg(`AI assessment succeeded · id=${result.data?.id ?? 'none'} · risk=${result.data?.overall_risk}`)
+      }
 
       // Refresh the donut + the RiskAssessment component
       setAssessmentSignal((n) => n + 1)
@@ -78,6 +84,23 @@ export default function TrackHealth() {
 
         {/* Risk score breakdown — donut + factor bars driven by the latest AI assessment */}
         <RiskScoreCard assessment={latestAssessment} />
+
+        {debugMsg && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: 10,
+              background: debugMsg.startsWith('AI assessment failed') ? '#fdecec' : '#eef5ec',
+              border: `1px solid ${debugMsg.startsWith('AI assessment failed') ? '#f3c2c2' : '#c9dec6'}`,
+              color: debugMsg.startsWith('AI assessment failed') ? '#8a2b2b' : '#2f5a36',
+              fontSize: 13,
+              fontFamily: 'monospace',
+              wordBreak: 'break-word',
+            }}
+          >
+            <strong>DEBUG:</strong> {debugMsg}
+          </div>
+        )}
 
         <div className="th__grid">
           {/* Daily questionnaire */}
