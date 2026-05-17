@@ -123,20 +123,24 @@ export default function SyncWearable() {
   // Handle the redirect back from Fitbit's OAuth flow.
   // Callback redirects to /sync-wearable?fitbit=connected (or error&message=…)
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined') return undefined
     const params = new URLSearchParams(window.location.search)
     const status = params.get('fitbit')
-    if (!status) return
+    if (!status) return undefined
 
-    if (status === 'connected') {
-      refreshProfile()
-      setError('')
-    } else if (status === 'error') {
-      setError(params.get('message') ?? 'Fitbit connection failed.')
-    }
+    const timer = window.setTimeout(() => {
+      if (status === 'connected') {
+        refreshProfile()
+        setError('')
+      } else if (status === 'error') {
+        setError(params.get('message') ?? 'Fitbit connection failed.')
+      }
 
-    // Clean the URL so the banner doesn't reappear on every render
-    window.history.replaceState({}, '', window.location.pathname)
+      // Clean the URL so the banner doesn't reappear on every render
+      window.history.replaceState({}, '', window.location.pathname)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [refreshProfile])
 
   useEffect(() => {

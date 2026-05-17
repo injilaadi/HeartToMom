@@ -33,11 +33,6 @@ export function AuthProvider({ children }) {
         password,
         options: { data: metadata, emailRedirectTo: `${window.location.origin}/home` },
       }),
-    signInWithOAuth: (provider) =>
-      supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: `${window.location.origin}/home` },
-      }),
     signOut: () => supabase.auth.signOut(),
   }
 
