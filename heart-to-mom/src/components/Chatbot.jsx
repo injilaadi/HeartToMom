@@ -36,41 +36,21 @@ export default function Chatbot() {
         const shouldRemind = !checkedInToday && !reminderGiven
         if (shouldRemind) setReminderGiven(true)
 
-        const geminiMessages = newMessages.filter((m, i) => !(m.role === 'assistant' && i === 0))
-
-        const systemPrompt = `You are a concise, caring assistant for HeartToMom, a pregnancy and maternal heart health app.
-Be warm but brief — no filler phrases like "Of course!", "Great question!", or "I'm here for you!". Get straight to the point.
-Use plain language. If a response is more than 4 sentences, add spacing between paragraphs.
-
-${shouldRemind ? 'At the start of your response, add one short sentence reminding the user to complete their daily check-in. Do not repeat this reminder again.' : ''}
-
-Never downplay symptoms. Validate first, then inform. For serious symptoms (heavy bleeding, chest pain, severe headache, no fetal movement, sudden swelling), tell them to contact their provider or go to the ER immediately.
-
-You support, you do not diagnose.`
+        // Drop the initial canned assistant greeting so it doesn't count as conversation
+        const chatMessages = newMessages.filter((m, i) => !(m.role === 'assistant' && i === 0))
 
         try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
+            const res = await fetch('/api/chatbot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    system_instruction: {
-                        parts: [{ text: systemPrompt }]
-                    },
-                    contents: geminiMessages.map(m => ({
-                        role: m.role === 'assistant' ? 'model' : 'user',
-                        parts: [{ text: m.content }]
-                    })),
-                }),
+                body: JSON.stringify({ messages: chatMessages, shouldRemind }),
             })
             const data = await res.json()
-            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-            if (!text) {
-                const apiErr = data?.error?.message ?? `HTTP ${res.status}`
-                throw new Error(apiErr)
-            }
-            setMessages([...newMessages, { role: 'assistant', content: text }])
+            if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+            if (!data.content) throw new Error('Empty response from AI')
+            setMessages([...newMessages, { role: 'assistant', content: data.content }])
         } catch (err) {
-            console.error('Gemini chatbot error:', err)
+            console.error('Chatbot error:', err)
             setMessages([
                 ...newMessages,
                 {
