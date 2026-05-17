@@ -125,10 +125,11 @@ export default async function handler(req, res) {
         .order('recorded_at', { ascending: false }).limit(7),
     ])
 
-    // If there's a recent assessment (< 10 min old), reuse it — UNLESS the
-    // user's profile or latest check-in was updated AFTER it was generated,
-    // or the request was explicitly an onboarding trigger (profile change).
-    if (triggeredBy !== 'onboarding') {
+    // Every check-in submit and every health-profile resubmit should produce a
+    // fresh assessment — we don't cache those. Cache only kicks in for an
+    // explicit 'manual' trigger (currently unused) so the option stays open.
+    const SKIP_CACHE_TRIGGERS = new Set(['check_in', 'onboarding'])
+    if (!SKIP_CACHE_TRIGGERS.has(triggeredBy)) {
       const TEN_MIN_AGO = new Date(Date.now() - 10 * 60_000).toISOString()
       const { data: recent } = await supabase
         .from('risk_assessments')
@@ -139,13 +140,7 @@ export default async function handler(req, res) {
         .limit(1)
         .maybeSingle()
 
-      const profileUpdated = profile?.updated_at ? new Date(profile.updated_at).getTime() : 0
-      const latestCheckInTs = checkIns?.[0]?.created_at ? new Date(checkIns[0].created_at).getTime() : 0
-      const cacheTs = recent?.created_at ? new Date(recent.created_at).getTime() : 0
-      const cacheIsStale =
-        cacheTs && (profileUpdated > cacheTs || latestCheckInTs > cacheTs)
-
-      if (recent && !cacheIsStale) {
+      if (recent) {
         return res.status(200).json({
           ...recent,
           cached: true,

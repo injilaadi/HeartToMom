@@ -60,6 +60,26 @@ export default function TrackHealth() {
       })
   }, [user, assessmentSignal])
 
+  // Keep the baby-movement answer in sync with the user's pregnancy status:
+  //   • Postpartum  → force to 'Postpartum (delivered)' (question no longer applies)
+  //   • Currently pregnant → clear any stale postpartum answer to 'N/A' as a default
+  // Runs after BOTH profile and latestCheckIn load so the override always wins.
+  useEffect(() => {
+    if (!profile) return
+    setAnswers((prev) => {
+      const current = prev.movement
+      if (profile.is_postpartum) {
+        if (current === 'Postpartum (delivered)') return prev
+        return { ...prev, movement: 'Postpartum (delivered)' }
+      }
+      // Currently pregnant
+      if (current === 'Postpartum (delivered)' || !current) {
+        return { ...prev, movement: 'N/A' }
+      }
+      return prev
+    })
+  }, [profile?.is_postpartum, latestCheckIn])
+
   const editMode = latestCheckIn && isRecent(latestCheckIn)
 
   const allAnswered = QUESTIONS.every((q) => {
