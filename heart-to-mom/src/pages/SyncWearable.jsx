@@ -27,7 +27,6 @@ const PROVIDERS = [
     cadence: 'Every 15 min',
     glyph: 'watch',
     syncs: ['heart rate', 'sleep', 'steps', 'blood pressure'],
-    implemented: false,
   },
   {
     id: 'oura',
@@ -156,8 +155,8 @@ export default function SyncWearable() {
     setFlowStep('permissions')
   }
 
-  const syncFitbitNow = async () => {
-    await saveConnection('Fitbit', { importMockVitals: true })
+  const syncDemoProviderNow = async (providerName) => {
+    await saveConnection(providerName, { importMockVitals: true })
     await refreshProfile()
   }
 
@@ -187,8 +186,8 @@ export default function SyncWearable() {
     setFlowStep('pairing')
 
     try {
-      if (flowProvider.id === 'fitbit') {
-        setPairedDeviceName('Fitbit demo connection')
+      if (flowProvider.id === 'fitbit' || flowProvider.id === 'apple') {
+        setPairedDeviceName(`${flowProvider.name} demo connection`)
         setSyncProgress(12)
         setFlowStep('syncing')
         return
@@ -279,7 +278,7 @@ export default function SyncWearable() {
             {PROVIDERS.map((provider) => {
               const isConnected = connected === provider.name
               const isLoading = connecting === provider.name
-              const canSyncConnectedFitbit = isConnected && provider.id === 'fitbit'
+              const canSyncConnectedDemo = isConnected && ['fitbit', 'apple'].includes(provider.id)
               const isComingSoon = provider.implemented === false
               return (
                 <article key={provider.id} className={`sw__card ${isConnected ? 'is-connected' : ''}`}>
@@ -307,14 +306,14 @@ export default function SyncWearable() {
 
                   <button
                     className={`sw__btn ${isConnected ? 'sw__btn--connected' : ''}`}
-                    onClick={() => canSyncConnectedFitbit ? syncFitbitNow() : beginConnect(provider)}
-                    disabled={isLoading || isComingSoon || (isConnected && !canSyncConnectedFitbit)}
+                    onClick={() => canSyncConnectedDemo ? syncDemoProviderNow(provider.name) : beginConnect(provider)}
+                    disabled={isLoading || isComingSoon || (isConnected && !canSyncConnectedDemo)}
                   >
                     {isComingSoon
                       ? 'To be implemented'
                       : isLoading
-                      ? (canSyncConnectedFitbit ? 'Syncing...' : 'Connecting...')
-                      : canSyncConnectedFitbit
+                      ? (canSyncConnectedDemo ? 'Syncing...' : 'Connecting...')
+                      : canSyncConnectedDemo
                         ? 'Sync now'
                         : isConnected
                           ? 'Connected'
