@@ -60,25 +60,13 @@ export default function TrackHealth() {
       })
   }, [user, assessmentSignal])
 
-  // Keep the baby-movement answer in sync with the user's pregnancy status:
-  //   • Postpartum  → force to 'Postpartum (delivered)' (question no longer applies)
-  //   • Currently pregnant → clear any stale postpartum answer to 'N/A' as a default
-  // Runs after BOTH profile and latestCheckIn load so the override always wins.
-  useEffect(() => {
-    if (!profile) return
-    setAnswers((prev) => {
-      const current = prev.movement
-      if (profile.is_postpartum) {
-        if (current === 'Postpartum (delivered)') return prev
-        return { ...prev, movement: 'Postpartum (delivered)' }
-      }
-      // Currently pregnant
-      if (current === 'Postpartum (delivered)' || !current) {
-        return { ...prev, movement: 'N/A' }
-      }
-      return prev
-    })
-  }, [profile?.is_postpartum, latestCheckIn])
+  // The movement answer the form should DISPLAY (and submit), computed every
+  // render from profile.is_postpartum so it can never go out of sync.
+  const effectiveMovement = profile?.is_postpartum
+    ? 'Postpartum (delivered)'
+    : (answers.movement === 'Postpartum (delivered)' || !answers.movement)
+      ? 'N/A'
+      : answers.movement
 
   const editMode = latestCheckIn && isRecent(latestCheckIn)
 
@@ -109,8 +97,11 @@ export default function TrackHealth() {
     setSubmitting(true)
     setSavedMsg('')
     try {
-      const risk = deriveRisk(answers)
-      const payload = { user_id: user.id, answers, risk_score: risk }
+      // Use effective movement (forced to "Postpartum (delivered)" when postpartum)
+      // so the saved answer always matches the user's current status.
+      const submitAnswers = { ...answers, movement: effectiveMovement }
+      const risk = deriveRisk(submitAnswers)
+      const payload = { user_id: user.id, answers: submitAnswers, risk_score: risk }
 
       if (editMode) {
         await supabase
@@ -125,9 +116,18 @@ export default function TrackHealth() {
       setAnalyzing(true)
       const result = await triggerRiskAssessment('check_in')
       setAnalyzing(false)
-      if (!result.ok) console.warn('Risk assessment failed:', result.error)
+      if (!result.ok) {
+        console.warn('Risk assessment failed:', result.error)
+      } else if (result.data) {
+        // Update the UI immediately from the response, so the donut/trend
+        // reflect the new score without waiting for a refetch.
+        const fresh = { ...result.data, created_at: result.data.generated_at }
+        setLatestAssessment(fresh)
+        setTrendAssessments((prev) => [...prev, fresh])
+      }
 
-      // Refresh local state so editMode reflects the new check-in
+      // Refresh local state so editMode reflects the new check-in,
+      // and as a safety net re-fetches everything from the DB.
       setAssessmentSignal((n) => n + 1)
       setSubmitted(true)
     } catch (err) {
@@ -197,14 +197,22 @@ export default function TrackHealth() {
                       <p className="th__quiz-label">{q.label}</p>
                       <div className="th__quiz-options">
                         {q.options.map((opt) => {
-                          const v = answers[q.id]
+                          // For the movement question, use the effective value
+                          // (forced to "Postpartum (delivered)" when postpartum).
+                          const v = q.id === 'movement' ? effectiveMovement : answers[q.id]
                           const isSelected = q.multi
                             ? Array.isArray(v) && v.includes(opt)
                             : v === opt
+                          // Disable non-postpartum options when user is postpartum
+                          const disabled =
+                            q.id === 'movement'
+                            && profile?.is_postpartum
+                            && opt !== 'Postpartum (delivered)'
                           return (
                             <button
                               key={opt}
                               type="button"
+                              disabled={disabled}
                               className={`pill-btn ${isSelected ? 'is-selected' : ''}`}
                               onClick={() => toggleAnswer(q, opt)}
                             >

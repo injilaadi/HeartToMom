@@ -24,15 +24,21 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-    const { messages = [], shouldRemind = false } = body
+    const { messages = [], shouldRemind = false, detectedSymptoms = [] } = body
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'messages array required' })
     }
 
-    const systemPrompt = shouldRemind
-      ? `${SYSTEM_PROMPT_BASE}\n\nAt the start of your response, add one short sentence reminding the user to complete their daily check-in. Do not repeat this reminder again.`
-      : SYSTEM_PROMPT_BASE
+    const reminderClause = shouldRemind
+      ? `\n\nAt the start of your response, add one short sentence reminding the user to complete their daily check-in. Do not repeat this reminder again.`
+      : ''
+
+    const symptomClause = (Array.isArray(detectedSymptoms) && detectedSymptoms.length > 0)
+      ? `\n\nThe user just mentioned these symptoms in their message: ${detectedSymptoms.join(', ')}. Briefly acknowledge them, indicate which (if any) warrant urgent care versus normal pregnancy variation, and end with one sentence inviting the user to log them on their daily check-in so their risk score reflects this.`
+      : ''
+
+    const systemPrompt = `${SYSTEM_PROMPT_BASE}${reminderClause}${symptomClause}`
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     const model = genAI.getGenerativeModel({
