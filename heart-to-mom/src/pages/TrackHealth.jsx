@@ -172,16 +172,6 @@ export default function TrackHealth() {
           </p>
         </header>
 
-        <div className="th__export-row">
-          <button
-            type="button"
-            className="btn-primary th__export-provider"
-            onClick={exportProviderReport}
-          >
-            Export to your healthcare provider
-          </button>
-        </div>
-
         {/* Risk score breakdown — donut + factor bars driven by the latest AI assessment */}
         <RiskScoreCard assessment={latestAssessment} />
 
@@ -276,8 +266,28 @@ export default function TrackHealth() {
           </section>
         </div>
 
-        {/* 30-day trend line — placed last so users see it after submitting */}
-        <RiskTrendChart assessments={trendAssessments} />
+        <div className="th__bottom-grid">
+          {/* 30-day trend line — placed last so users see it after submitting */}
+          <RiskTrendChart assessments={trendAssessments} />
+
+          <section className="card th__provider-export">
+            <div>
+              <h2 className="card__title">Provider export</h2>
+              <p className="th__provider-copy">
+                Download a PDF-ready report with your current score, score breakdown,
+                and 30-day risk trend for your healthcare provider.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="btn-primary th__export-provider"
+              onClick={exportProviderReport}
+            >
+              Export to your healthcare provider
+            </button>
+          </section>
+        </div>
       </main>
     </div>
   )
