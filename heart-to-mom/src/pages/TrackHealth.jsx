@@ -272,10 +272,10 @@ export default function TrackHealth() {
 
           <section className="card th__provider-export">
             <div>
-              <h2 className="card__title">Provider export</h2>
+              <h2 className="card__title">Care team summary</h2>
               <p className="th__provider-copy">
-                Download a PDF-ready report with your current score, score breakdown,
-                and 30-day risk trend for your healthcare provider.
+                Create a PDF-ready snapshot of your current score, score breakdown,
+                and 30-day risk trend to bring to your next visit.
               </p>
             </div>
 
@@ -284,7 +284,7 @@ export default function TrackHealth() {
               className="btn-primary th__export-provider"
               onClick={exportProviderReport}
             >
-              Export to your healthcare provider
+              Export healthcare summary
             </button>
           </section>
         </div>
