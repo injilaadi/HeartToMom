@@ -51,6 +51,8 @@
 .pill--ok        { background: #e6efdf; color: #4a6b3f; }
 .pill--required  { background: #f4d8da; color: #7c3a3e; }
 .pill--suggested { background: #e2ece1; color: #4a6b46; }
+.pill--warn      { background: #f4ead0; color: #876318; }
+.pill--neutral   { background: var(--cream-100); color: var(--muted); }
 
 /* =========================== Card primitive ======================= */
 .card {
@@ -620,6 +622,12 @@
 }
 
 /* =========================== Vitals card ========================== */
+.vitals__synced-at {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted-2);
+}
+
 .vitals__sync {
   display: inline-flex;
   align-items: center;

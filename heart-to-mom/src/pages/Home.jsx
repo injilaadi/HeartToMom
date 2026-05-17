@@ -280,7 +280,6 @@ export default function Home() {
                   : 'Welcome to HeartToMom'}
             </h1>
           </div>
-          <span className="pill pill--ok"><span className="pill__dot" />All readings normal</span>
         </div>
 
         {/* ---------- Due-date / delivery card ---------- */}
@@ -396,10 +395,19 @@ export default function Home() {
             <section className="card vitals">
               <div className="card__head">
                 <h2 className="card__title card__title--sm">Today’s vitals</h2>
-                <span className="vitals__sync">
-                  <span className="vitals__sync-dot" />
-                  {latestVital ? `synced ${timeAgo(latestVital.recorded_at)}` : 'no data yet'}
-                </span>
+                {(() => {
+                  const status = getVitalsStatus(latestVital)
+                  const pillClass =
+                    status.level === 'high'     ? 'pill--required' :   // red
+                    status.level === 'elevated' ? 'pill--warn' :       // amber
+                    status.level === 'ok'       ? 'pill--ok' :         // green
+                                                  'pill--neutral'      // grey
+                  return (
+                    <span className={`pill ${pillClass}`}>
+                      <span className="pill__dot" />{status.label}
+                    </span>
+                  )
+                })()}
               </div>
               <div className="vitals__grid">
                 <Stat
@@ -413,6 +421,9 @@ export default function Home() {
                   unit={latestVital ? 'bpm' : ''}
                 />
               </div>
+              <p className="vitals__synced-at">
+                {latestVital ? `Synced ${timeAgo(latestVital.recorded_at)}` : 'Connect a wearable or log a manual reading'}
+              </p>
             </section>
 
             <section className="card wearable-status">
@@ -906,6 +917,31 @@ function calculatePregnancy(due) {
   const trimesterLabel =
     currentWeek <= 13 ? 'First' : currentWeek <= 27 ? 'Second' : 'Third'
   return { weeksToGo, currentWeek, percent, trimesterLabel }
+}
+
+// Derive a status from the latest vital signs.
+// Pregnancy thresholds (loose, for hackathon use only — not clinical):
+//   • BP normal: <130 / <80   |  elevated: 130-139 / 80-89  |  high: ≥140 / ≥90
+//   • HR normal: 60-120 bpm   |  outside that = elevated/low
+function getVitalsStatus(vital) {
+  if (!vital) return { level: 'none', label: 'No readings yet' }
+
+  const { systolic, diastolic, heart_rate } = vital
+  const flags = []
+
+  if (systolic != null && systolic >= 140)        flags.push({ sev: 'high',     label: 'High BP' })
+  else if (diastolic != null && diastolic >= 90)  flags.push({ sev: 'high',     label: 'High BP' })
+  else if (systolic != null && systolic >= 130)   flags.push({ sev: 'elevated', label: 'Elevated BP' })
+  else if (diastolic != null && diastolic >= 80)  flags.push({ sev: 'elevated', label: 'Elevated BP' })
+
+  if (heart_rate != null) {
+    if      (heart_rate > 120) flags.push({ sev: 'elevated', label: 'Elevated HR' })
+    else if (heart_rate < 60)  flags.push({ sev: 'elevated', label: 'Low HR' })
+  }
+
+  if (flags.length === 0)               return { level: 'ok',       label: 'All readings normal' }
+  if (flags.some((f) => f.sev === 'high')) return { level: 'high',     label: flags.map((f) => f.label).join(' · ') }
+  return                                       { level: 'elevated', label: flags.map((f) => f.label).join(' · ') }
 }
 
 function timeAgo(iso) {
