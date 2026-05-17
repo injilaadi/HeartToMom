@@ -23,8 +23,18 @@ const RISK_SCHEMA = {
           reasoning:       { type: SchemaType.STRING, description: '1-2 sentences citing actual patient data' },
           data_points:     { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
           recommendations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          common_symptoms: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
+            description: '4-6 common early symptoms of this condition (plain language)',
+          },
+          warning_signs: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.STRING },
+            description: '3-5 red-flag warning signs that warrant urgent medical attention',
+          },
         },
-        required: ['name', 'risk_level', 'score', 'reasoning', 'data_points', 'recommendations'],
+        required: ['name', 'risk_level', 'score', 'reasoning', 'data_points', 'recommendations', 'common_symptoms', 'warning_signs'],
       },
     },
     discuss_with_provider: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
@@ -50,6 +60,9 @@ Rules:
 - Cite specific data points from the patient (e.g., "BP 132/85 on 2026-05-10", "Family history includes hypertension", "Prior preeclampsia"). Never fabricate numbers.
 - If a key data point is missing, say so in 'data_points' (e.g., "No BP readings logged") rather than guessing.
 - recommendations should be actionable, balanced (lifestyle + clinical), and trimester-appropriate. Avoid alarmist language.
+- For EVERY condition, also list:
+    common_symptoms — 4-6 typical early symptoms in plain patient-facing language
+    warning_signs   — 3-5 RED-FLAG signs that warrant urgent medical attention (heavier bleeding, severe headache, etc.)
 - Overall score: weight conditions reasonably; if any one is high, overall is at least moderate.
 - Disclaimer text must clearly say this is educational, not a diagnosis, and they should consult their provider.
 

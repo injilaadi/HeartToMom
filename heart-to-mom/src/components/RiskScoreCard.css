@@ -44,14 +44,109 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
+
+.rs__factor {
+  display: flex;
+  flex-direction: column;
+}
+
+.rs__factor-toggle {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 6px 0;
+  border-radius: 8px;
+  transition: background 100ms ease;
+}
+
+.rs__factor-toggle:hover { background: var(--cream-50); padding: 6px 8px; margin: 0 -8px; }
 
 .rs__factor-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: 8px;
+  gap: 12px;
+}
+
+.rs__chevron {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-right: 8px;
+  transition: transform 120ms ease;
+}
+.rs__chevron.is-open { transform: rotate(90deg); }
+
+/* Expanded condition detail panel */
+.rs__detail {
+  margin: 10px 0 4px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: var(--cream-50);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rs__detail--high     { border-color: #ecc4c7; background: #fdf3f4; }
+.rs__detail--moderate { border-color: #ecdaa6; background: #fbf6e7; }
+
+.rs__action {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #e6efdf;
+  color: #4a6b3f;
+}
+
+.rs__action--moderate { background: #f4ead0; color: #876318; }
+.rs__action--high     { background: #f4d8da; color: #7c3a3e; }
+
+.rs__detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rs__detail-block--warn .rs__detail-label { color: #7c3a3e; }
+
+.rs__detail-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rs__detail-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.rs__detail-text--muted { color: var(--muted); font-style: italic; }
+
+.rs__detail-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.5;
 }
 
 .rs__factor-label {

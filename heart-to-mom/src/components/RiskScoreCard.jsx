@@ -1,19 +1,17 @@
+import { useState } from 'react'
 import './RiskScoreCard.css'
 
 /**
  * Donut + condition-factor bars driven by the latest persisted AI risk assessment.
- * Renders an empty state when no assessment has been generated yet.
+ * Each condition row is expandable — clicking it reveals an AI-generated summary
+ * of why that score was given, common symptoms, and warning signs.
  */
 export default function RiskScoreCard({ assessment }) {
   if (!assessment) return <EmptyState />
 
   const level = assessment.overall_risk
   const score = assessment.overall_score
-  const factors = (assessment.conditions ?? []).map((c) => ({
-    label: c.name,
-    level: c.risk_level,
-    pct:   Math.max(4, Math.min(100, c.score ?? 0)),
-  }))
+  const conditions = assessment.conditions ?? []
 
   return (
     <section className="card rs">
@@ -24,33 +22,99 @@ export default function RiskScoreCard({ assessment }) {
 
         <div className="rs__bars">
           <h2 className="card__title rs__title">What goes into your score</h2>
-          {factors.length === 0 ? (
+          {conditions.length === 0 ? (
             <p className="rs__factor-empty">
               No condition breakdown available for this assessment.
             </p>
           ) : (
             <ul className="rs__factor-list">
-              {factors.map((f) => (
-                <li key={f.label} className="rs__factor">
-                  <div className="rs__factor-row">
-                    <span className="rs__factor-label">{f.label}</span>
-                    <span className={`rs__factor-level rs__factor-level--${f.level}`}>
-                      {cap(f.level)}
-                    </span>
-                  </div>
-                  <div className="rs__bar">
-                    <div
-                      className={`rs__bar-fill rs__bar-fill--${f.level}`}
-                      style={{ width: `${f.pct}%` }}
-                    />
-                  </div>
-                </li>
+              {conditions.map((c) => (
+                <FactorRow key={c.name} c={c} />
               ))}
             </ul>
           )}
         </div>
       </div>
     </section>
+  )
+}
+
+function FactorRow({ c }) {
+  const [open, setOpen] = useState(false)
+  const pct = Math.max(4, Math.min(100, c.score ?? 0))
+
+  return (
+    <li className="rs__factor">
+      <button
+        type="button"
+        className="rs__factor-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="rs__factor-row">
+          <span className="rs__factor-label">
+            <span className={`rs__chevron ${open ? 'is-open' : ''}`} aria-hidden>▸</span>
+            {c.name}
+          </span>
+          <span className={`rs__factor-level rs__factor-level--${c.risk_level}`}>
+            {cap(c.risk_level)}
+          </span>
+        </div>
+        <div className="rs__bar">
+          <div
+            className={`rs__bar-fill rs__bar-fill--${c.risk_level}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </button>
+
+      {open && <ConditionDetails c={c} />}
+    </li>
+  )
+}
+
+function ConditionDetails({ c }) {
+  const actionSentence =
+    c.risk_level === 'high'
+      ? 'Immediately call your healthcare provider.'
+      : 'Bring this up at your next appointment.'
+
+  return (
+    <div className={`rs__detail rs__detail--${c.risk_level}`}>
+      <p className={`rs__action rs__action--${c.risk_level}`}>{actionSentence}</p>
+
+      {c.reasoning && (
+        <div className="rs__detail-block">
+          <p className="rs__detail-label">Why this score</p>
+          <p className="rs__detail-text">{c.reasoning}</p>
+        </div>
+      )}
+
+      {c.common_symptoms?.length > 0 && (
+        <div className="rs__detail-block">
+          <p className="rs__detail-label">Common symptoms</p>
+          <ul className="rs__detail-list">
+            {c.common_symptoms.map((s, i) => <li key={i}>{s}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {c.warning_signs?.length > 0 && (
+        <div className="rs__detail-block rs__detail-block--warn">
+          <p className="rs__detail-label">⚠ Warning signs — seek care if you notice</p>
+          <ul className="rs__detail-list">
+            {c.warning_signs.map((s, i) => <li key={i}>{s}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {(!c.common_symptoms?.length && !c.warning_signs?.length) && (
+        <p className="rs__detail-text rs__detail-text--muted">
+          Symptom + warning-sign detail isn't in this assessment yet. Submit a new
+          daily check-in to refresh.
+        </p>
+      )}
+    </div>
   )
 }
 

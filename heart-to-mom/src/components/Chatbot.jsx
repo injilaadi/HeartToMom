@@ -48,24 +48,44 @@ Never downplay symptoms. Validate first, then inform. For serious symptoms (heav
 
 You support, you do not diagnose.`
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                system_instruction: {
-                    parts: [{ text: systemPrompt }]
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system_instruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                    contents: geminiMessages.map(m => ({
+                        role: m.role === 'assistant' ? 'model' : 'user',
+                        parts: [{ text: m.content }]
+                    })),
+                }),
+            })
+            const data = await res.json()
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+            if (!text) {
+                const apiErr = data?.error?.message ?? `HTTP ${res.status}`
+                throw new Error(apiErr)
+            }
+            setMessages([...newMessages, { role: 'assistant', content: text }])
+        } catch (err) {
+            console.error('Gemini chatbot error:', err)
+            setMessages([
+                ...newMessages,
+                {
+                    role: 'assistant',
+                    content: `Sorry — I couldn't reach the AI service. ${err.message ?? ''}`.trim(),
                 },
-                contents: geminiMessages.map(m => ({
-                    role: m.role === 'assistant' ? 'model' : 'user',
-                    parts: [{ text: m.content }]
-                })),
-            }),
-        })
-        const data = await res.json()
-        console.log('gemini response:', data)
-        setMessages([...newMessages, { role: 'assistant', content: data.candidates[0].content.parts[0].text }])
-        setLoading(false)
+            ])
+        } finally {
+            setLoading(false)
+        }
     }
+
+    // Only show the assistant for signed-in users
+    if (authLoading || !user) return null
+
     return (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
             {open && (
