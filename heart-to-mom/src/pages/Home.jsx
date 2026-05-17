@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { useDashboardData } from '../lib/useDashboardData.js'
 import { supabase } from '../lib/supabase.js'
@@ -58,6 +58,7 @@ const EVERGREEN_RECS = [
 
 export default function Home() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const { profile, appointments, latestVital, latestCheckIn, latestAssessment, loading } = useDashboardData()
   const [profileModalDismissed, setProfileModalDismissed] = useState(false)
@@ -188,29 +189,72 @@ export default function Home() {
     setAppointmentError('')
     setAppointmentSyncing(true)
     try {
-      const synced = GOOGLE_SYNC_APPOINTMENTS.map((appt) => ({
-        user_id: user.id,
-        title: appt.title,
-        provider: appt.provider,
-        location: 'Google Calendar',
-        scheduled_at: appointmentDate(appt.daysFromNow, appt.hour).toISOString(),
-        required: appt.required,
-        suggested: appt.suggested,
-      }))
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Please sign in again before syncing Google Calendar.')
 
-      await new Promise((resolve) => window.setTimeout(resolve, 700))
-      const saved = await Promise.all(synced.map(async (appt, index) => {
-        const { data, error } = await supabaseInsertAppointment(appt)
-        if (error) throw error
-        return data ?? { ...appt, id: `google-${Date.now()}-${index}` }
-      }))
-      setLocalAppointments((current) => mergeAppointments(current, saved))
+      const res = await fetch('/api/google-calendar-auth-url', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? `Google Calendar authorization failed (${res.status})`)
+
+      window.location.assign(body.url)
     } catch (err) {
       setAppointmentError(err.message ?? 'Could not sync Google Calendar.')
-    } finally {
       setAppointmentSyncing(false)
     }
   }
+
+  useEffect(() => {
+    const googleStatus = searchParams.get('google_calendar')
+    if (!googleStatus) return undefined
+
+    const message = searchParams.get('message')
+    const timer = window.setTimeout(() => {
+      if (googleStatus === 'connected') {
+        setAppointmentModalOpen(false)
+        setAppointmentError('')
+        const existing = new Set(calendarAppointments.map((appt) => appt.title?.toLowerCase()))
+        const synced = GOOGLE_SYNC_APPOINTMENTS
+          .filter((appt) => !existing.has(appt.title.toLowerCase()))
+          .map((appt) => ({
+            user_id: user.id,
+            title: appt.title,
+            provider: appt.provider,
+            location: 'Google Calendar',
+            scheduled_at: appointmentDate(appt.daysFromNow, appt.hour).toISOString(),
+            required: appt.required,
+            suggested: appt.suggested,
+          }))
+
+        if (synced.length > 0) {
+          Promise.all(synced.map(async (appt, index) => {
+            const { data, error } = await supabaseInsertAppointment(appt)
+            if (error) throw error
+            return data ?? { ...appt, id: `google-${Date.now()}-${index}` }
+          })).then((saved) => {
+            setLocalAppointments((current) => mergeAppointments(current, saved))
+          }).catch((err) => {
+            setAppointmentError(err.message ?? 'Could not save Google Calendar appointments.')
+          })
+        }
+      } else {
+        setAppointmentError(message || 'Could not sync Google Calendar.')
+        setAppointmentModalOpen(true)
+      }
+
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current)
+        next.delete('google_calendar')
+        next.delete('message')
+        return next
+      }, { replace: true })
+      setAppointmentSyncing(false)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [calendarAppointments, searchParams, setSearchParams, user])
 
   return (
     <div className="page">
