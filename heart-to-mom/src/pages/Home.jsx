@@ -85,7 +85,9 @@ export default function Home() {
 
   // Reset dismissal whenever the profile changes (e.g. user just completed it)
   useEffect(() => {
-    if (profile?.onboarding_completed) setProfileModalDismissed(false)
+    if (!profile?.onboarding_completed) return undefined
+    const timer = window.setTimeout(() => setProfileModalDismissed(false), 0)
+    return () => window.clearTimeout(timer)
   }, [profile?.onboarding_completed])
 
   const firstName =
@@ -94,11 +96,12 @@ export default function Home() {
     user?.email?.split('@')[0] ??
     'there'
 
-  const greeting = greetingForHour(new Date().getHours())
+  const [renderTimeMs] = useState(() => Date.now())
+  const greeting = greetingForHour(new Date(renderTimeMs).getHours())
 
   const due = profile?.due_date ? new Date(profile.due_date) : null
   // Postpartum either via explicit profile flag OR a due-date in the past.
-  const isPostpartum = !!profile?.is_postpartum || (due != null && due.getTime() < Date.now())
+  const isPostpartum = !!profile?.is_postpartum || (due != null && due.getTime() < renderTimeMs)
   const pregnancy = isPostpartum ? null : calculatePregnancy(due)
   const wearableProvider = profile?.wearable_provider
   const syncLabel = latestVital

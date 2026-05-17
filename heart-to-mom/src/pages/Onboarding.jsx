@@ -142,7 +142,11 @@ export default function Onboarding() {
         // Persist completion as a local-only fallback so the dashboard banner
         // and "edit health profile" state work even if the DB column write
         // failed (e.g. schema not yet migrated).
-        try { localStorage.setItem(`htm:onboardingDone:${user.id}`, '1') } catch {}
+        try {
+          localStorage.setItem(`htm:onboardingDone:${user.id}`, '1')
+        } catch {
+          // localStorage may be blocked; the database profile remains canonical.
+        }
 
         const result = await triggerRiskAssessment('onboarding')
         if (!result.ok) console.warn('Initial risk assessment failed:', result.error)
@@ -478,7 +482,7 @@ function Row({ children }) {
   return <div className="row">{children}</div>
 }
 
-function PillGroup({ options, selected, onToggle, single, big }) {
+function PillGroup({ options, selected, onToggle, big }) {
   return (
     <div className={`pills ${big ? 'pills--big' : ''}`}>
       {options.map((opt) => {

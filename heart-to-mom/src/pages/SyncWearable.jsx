@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import NavBar from '../components/NavBar.jsx'
 import { useAuth } from '../lib/AuthContext.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -65,6 +66,7 @@ const SYNC_PERMISSIONS = [
 
 export default function SyncWearable() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [profile, setProfile] = useState(null)
   const [connecting, setConnecting] = useState('')
   const [flowProvider, setFlowProvider] = useState(null)
@@ -84,6 +86,12 @@ export default function SyncWearable() {
     () => PROVIDERS.find((provider) => provider.name === connected),
     [connected]
   )
+
+  const refreshProfile = useCallback(async () => {
+    if (!user) return
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+    setProfile(data ?? null)
+  }, [user])
 
   const saveConnection = useCallback(async (providerName, options = {}) => {
     setConnecting(providerName)
@@ -109,10 +117,40 @@ export default function SyncWearable() {
   }, [user])
 
   useEffect(() => {
-    if (!user) return
+    if (!user) return undefined
+
+    let cancelled = false
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
-      .then(({ data }) => setProfile(data ?? null))
+      .then(({ data }) => {
+        if (!cancelled) setProfile(data ?? null)
+      })
+
+    return () => { cancelled = true }
   }, [user])
+
+  useEffect(() => {
+    const fitbitStatus = searchParams.get('fitbit')
+    if (!fitbitStatus) return undefined
+
+    const message = searchParams.get('message')
+    const timer = window.setTimeout(() => {
+      if (fitbitStatus === 'connected') {
+        setError('')
+        refreshProfile()
+      } else {
+        setError(message || 'Could not connect Fitbit. Please try again.')
+      }
+
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current)
+        next.delete('fitbit')
+        next.delete('message')
+        return next
+      }, { replace: true })
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [refreshProfile, searchParams, setSearchParams])
 
   useEffect(() => {
     if (flowStep !== 'syncing') return undefined
@@ -140,6 +178,10 @@ export default function SyncWearable() {
     setFlowError(null)
     setPairedDeviceName('')
     setSyncProgress(0)
+    if (provider.id === 'fitbit') {
+      startFitbitOAuth(provider)
+      return
+    }
     if (provider.id === 'manual') {
       setFlowProvider(provider)
       setFlowStep('manual')
@@ -147,6 +189,51 @@ export default function SyncWearable() {
     }
     setFlowProvider(provider)
     setFlowStep('permissions')
+  }
+
+  const startFitbitOAuth = async (provider) => {
+    setConnecting(provider.name)
+    setError('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Please sign in again before connecting Fitbit.')
+
+      const res = await fetch('/api/fitbit-auth-url', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? `Fitbit authorization failed (${res.status})`)
+
+      window.location.assign(body.url)
+    } catch (err) {
+      setError(err.message ?? 'Could not start Fitbit connection.')
+      setConnecting('')
+    }
+  }
+
+  const syncFitbitNow = async () => {
+    setConnecting('Fitbit')
+    setError('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Please sign in again before syncing Fitbit.')
+
+      const res = await fetch('/api/fitbit-sync', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error ?? `Fitbit sync failed (${res.status})`)
+
+      await refreshProfile()
+    } catch (err) {
+      setError(err.message ?? 'Could not sync Fitbit data.')
+    } finally {
+      setConnecting('')
+    }
   }
 
   const useManualFallback = () => {
@@ -260,6 +347,7 @@ export default function SyncWearable() {
             {PROVIDERS.map((provider) => {
               const isConnected = connected === provider.name
               const isLoading = connecting === provider.name
+              const canSyncConnectedFitbit = isConnected && provider.id === 'fitbit'
               return (
                 <article key={provider.id} className={`sw__card ${isConnected ? 'is-connected' : ''}`}>
                   <div className="sw__head">
@@ -286,10 +374,18 @@ export default function SyncWearable() {
 
                   <button
                     className={`sw__btn ${isConnected ? 'sw__btn--connected' : ''}`}
-                    onClick={() => beginConnect(provider)}
-                    disabled={isLoading || isConnected}
+                    onClick={() => canSyncConnectedFitbit ? syncFitbitNow() : beginConnect(provider)}
+                    disabled={isLoading || (isConnected && !canSyncConnectedFitbit)}
                   >
-                    {isLoading ? 'Connecting...' : isConnected ? 'Connected' : provider.id === 'manual' ? 'Use manual entry' : 'Connect'}
+                    {isLoading
+                      ? (canSyncConnectedFitbit ? 'Syncing...' : 'Connecting...')
+                      : canSyncConnectedFitbit
+                        ? 'Sync now'
+                        : isConnected
+                          ? 'Connected'
+                          : provider.id === 'manual'
+                            ? 'Use manual entry'
+                            : 'Connect'}
                   </button>
                 </article>
               )

@@ -25,7 +25,10 @@ export function useLatestAssessment() {
     setLoading(false)
   }, [user])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { refresh() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [refresh])
 
   return { assessment, loading, refresh }
 }

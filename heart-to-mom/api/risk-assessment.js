@@ -226,12 +226,12 @@ function buildUserPrompt({ profile, checkIns, vitals }) {
     '',
     `## Recent daily check-ins (last ${checkIns.length})`,
     checkIns.length
-      ? JSON.stringify(checkIns.map(({ id, user_id, ...rest }) => rest), null, 2)
+      ? JSON.stringify(checkIns.map((row) => stripFields(row, ['id', 'user_id'])), null, 2)
       : '(no check-in data yet)',
     '',
     `## Recent vitals (last ${vitals.length})`,
     vitals.length
-      ? JSON.stringify(vitals.map(({ id, user_id, ...rest }) => rest), null, 2)
+      ? JSON.stringify(vitals.map((row) => stripFields(row, ['id', 'user_id'])), null, 2)
       : '(no vitals data yet)',
     '',
     'Now produce the JSON risk assessment.',
@@ -240,6 +240,11 @@ function buildUserPrompt({ profile, checkIns, vitals }) {
 
 // Strip fields the model doesn't need to reduce tokens + leak surface
 function redactedProfile(p) {
-  const { id, created_at, updated_at, onboarding_completed, ...rest } = p
-  return rest
+  return stripFields(p, ['id', 'created_at', 'updated_at', 'onboarding_completed'])
+}
+
+function stripFields(row, fields) {
+  const copy = { ...row }
+  fields.forEach((field) => delete copy[field])
+  return copy
 }
