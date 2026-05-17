@@ -1,3 +1,98 @@
+.pr__planner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  padding: 24px 28px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--shadow-card);
+}
+
+.pr__planner-copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pr__kicker {
+  margin: 0;
+  color: var(--rose-500);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.pr__planner-copy h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.25px;
+}
+
+.pr__planner-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.pr__checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pr__checklist-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pr__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cream-100);
+  color: var(--ink);
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.pr__check span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  background: #fff;
+  color: #4a6b3f;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.pr__check.is-done {
+  background: #e6efdf;
+  color: #4a6b3f;
+}
+
+.pr__check.is-done span {
+  background: #fff;
+  border-color: #b8d4ae;
+}
+
 .pr__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -79,3 +174,19 @@
 }
 
 .pr__post:hover .pr__arrow { transform: translateX(3px); }
+
+@media (max-width: 860px) {
+  .pr__planner {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .pr__planner {
+    padding: 20px;
+  }
+
+  .pr__planner-copy h2 {
+    font-size: 21px;
+  }
+}

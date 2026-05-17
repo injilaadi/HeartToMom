@@ -10,6 +10,7 @@ import SyncWearable from './pages/SyncWearable.jsx'
 import Prepare from './pages/Prepare.jsx'
 import { AuthProvider } from './lib/AuthContext.jsx'
 import ProtectedRoute from './lib/ProtectedRoute.jsx'
+import Chatbot from './components/Chatbot'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -58,7 +59,10 @@ createRoot(document.getElementById('root')).render(
               </ProtectedRoute>
             }
           />
+          {/* Catch-all: send anything else back to login (which will bounce to /home if signed in) */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        <Chatbot />
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

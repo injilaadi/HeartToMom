@@ -1,17 +1,19 @@
 import './RiskScoreCard.css'
 
 /**
- * Renders the donut + factor breakdown for the user's most recent check-in.
- * Shows a real empty state when there is no check-in (no mock data).
- * When a check-in exists, all numbers are derived from its actual answers.
+ * Donut + condition-factor bars driven by the latest persisted AI risk assessment.
+ * Renders an empty state when no assessment has been generated yet.
  */
-export default function RiskScoreCard({ latestCheckIn }) {
-  if (!latestCheckIn) return <EmptyState />
+export default function RiskScoreCard({ assessment }) {
+  if (!assessment) return <EmptyState />
 
-  const level = latestCheckIn.risk_score ?? null
-  const answers = latestCheckIn.answers ?? {}
-  const score = scoreFromAnswers(answers)
-  const factors = factorsFromAnswers(answers)
+  const level = assessment.overall_risk
+  const score = assessment.overall_score
+  const factors = (assessment.conditions ?? []).map((c) => ({
+    label: c.name,
+    level: c.risk_level,
+    pct:   Math.max(4, Math.min(100, c.score ?? 0)),
+  }))
 
   return (
     <section className="card rs">
@@ -24,7 +26,7 @@ export default function RiskScoreCard({ latestCheckIn }) {
           <h2 className="card__title rs__title">What goes into your score</h2>
           {factors.length === 0 ? (
             <p className="rs__factor-empty">
-              Your last check-in didn’t include any contributing factors.
+              No condition breakdown available for this assessment.
             </p>
           ) : (
             <ul className="rs__factor-list">
@@ -62,8 +64,8 @@ function EmptyState() {
         <div className="rs__bars">
           <h2 className="card__title rs__title">What goes into your score</h2>
           <p className="rs__factor-empty">
-            No check-in data yet. Complete a daily check-in below to see your risk
-            score and what's driving it.
+            No assessment yet. Complete your health profile, or submit a daily
+            check-in below, and we'll generate one automatically.
           </p>
         </div>
       </div>
@@ -117,46 +119,6 @@ function ScoreRing({ score, level }) {
       </text>
     </svg>
   )
-}
-
-/* ---------------- Score derivation from real answers ---------------- */
-/* These mappings match the QUESTIONS list in TrackHealth.jsx.        */
-
-const ANSWER_WEIGHTS = {
-  'No movement today':   25, 'Spotting':           25,
-  'Unwell':              18, 'Forgot':             10,
-  'Less than usual':     15, 'Headache':           12,
-  'Swelling':            12, 'Cramping':           12,
-  'Poorly':              12, 'Tired':              8,
-  'Not yet':             5,  'Okay':               3,
-  // everything else (Great, Yes, None, Well, etc.) contributes 0
-}
-
-function scoreFromAnswers(answers) {
-  return Object.values(answers).reduce(
-    (sum, v) => Math.min(100, sum + (ANSWER_WEIGHTS[v] ?? 0)),
-    0,
-  )
-}
-
-const QUESTION_LABELS = {
-  mood:     'Mood',
-  movement: 'Baby movement',
-  symptoms: 'Reported symptoms',
-  sleep:    'Sleep quality',
-  meds:     'Medication adherence',
-}
-
-function factorsFromAnswers(answers) {
-  return Object.entries(answers)
-    .filter(([k]) => QUESTION_LABELS[k])
-    .map(([k, v]) => {
-      const weight = ANSWER_WEIGHTS[v] ?? 0
-      const level = weight >= 18 ? 'high' : weight >= 8 ? 'moderate' : 'low'
-      // Bar width as a share of "worst-possible-for-this-factor" (25 = full bar)
-      const pct = Math.min(100, Math.round((weight / 25) * 100))
-      return { label: QUESTION_LABELS[k], level, pct, value: v }
-    })
 }
 
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s }

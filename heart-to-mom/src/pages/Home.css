@@ -170,6 +170,32 @@
 }
 
 /* =========================== Calendar ============================= */
+.appts__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.appts__add {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--rose-500);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 500;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.appts__add:hover {
+  background: var(--rose-600);
+  transform: translateY(-1px);
+}
+
 .cal { margin: 16px 0 20px; }
 
 .cal__nav {
@@ -248,11 +274,52 @@
 }
 
 /* =========================== Appointment list ===================== */
+.appt-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.appt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.appt-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.appt-section__head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.appt-section__head span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.appt-section__empty {
+  margin: 0;
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
 .appt-list {
   list-style: none;
   margin: 0;
-  padding: 16px 0 0;
-  border-top: 1px solid var(--line);
+  padding: 0;
   display: flex;
   flex-direction: column;
 }
@@ -282,10 +349,134 @@
 
 .appt-list__empty {
   padding: 24px 0;
+  margin: 0;
   color: var(--muted);
   text-align: center;
   font-size: 14px;
   font-style: italic;
+}
+
+.appt-modal {
+  max-width: 540px;
+  text-align: left;
+}
+
+.appt-modal .modal__title {
+  text-align: left;
+}
+
+.appt-modal__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 4px;
+  margin: 18px 0;
+  border-radius: 14px;
+  background: var(--cream-100);
+}
+
+.appt-modal__tabs button {
+  min-height: 40px;
+  border-radius: 11px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.appt-modal__tabs button.is-active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(31,29,34,0.08);
+}
+
+.appt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.appt-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.appt-form span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.appt-form input,
+.appt-form select {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.appt-form input:focus,
+.appt-form select:focus {
+  border-color: var(--rose-400);
+  box-shadow: 0 0 0 3px rgba(201, 138, 142, 0.15);
+}
+
+.appt-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.appt-modal__error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f7e1e3;
+  color: #7c3a3e;
+  font-size: 13px;
+}
+
+.appt-sync {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 18px 0 4px;
+}
+
+.appt-sync__mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: var(--cream-100);
+  color: var(--rose-500);
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.appt-sync h3 {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.appt-sync p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.appt-sync__note {
+  max-width: 320px;
+  font-size: 13px !important;
 }
 
 /* =========================== Vitals card ========================== */
@@ -332,6 +523,41 @@
   color: var(--muted);
   margin-left: 2px;
 }
+
+/* =========================== Wearable status ====================== */
+.wearable-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  background: #fff;
+}
+
+.wearable-status__title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.wearable-status__meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.wearable-status__btn {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--rose-500);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 120ms ease;
+}
+
+.wearable-status__btn:hover { background: var(--rose-600); }
 
 /* =========================== Risk card ============================ */
 .risk__value {
@@ -421,6 +647,10 @@
   .dash__title { font-size: 26px; }
   .due__date { font-size: 22px; }
   .vitals__grid { grid-template-columns: 1fr; }
+  .wearable-status { flex-direction: column; align-items: flex-start; }
+  .wearable-status__btn { width: 100%; }
+  .appt-form__row { grid-template-columns: 1fr; }
+  .appt-modal__tabs { grid-template-columns: 1fr; }
   .cal__day { width: 32px; height: 32px; font-size: 13px; }
 }
 

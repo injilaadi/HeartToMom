@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext.jsx'
 import './Auth.css'
 
@@ -20,7 +20,10 @@ export default function Auth() {
   const [info, setInfo] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
-  const { signIn, signUp, signInWithOAuth } = useAuth()
+  const { user, loading, signIn, signUp, signInWithOAuth } = useAuth()
+
+  // If the user is already signed in, skip the auth form entirely.
+  if (!loading && user) return <Navigate to="/home" replace />
 
   const handleSubmit = async (e) => {
     e.preventDefault()

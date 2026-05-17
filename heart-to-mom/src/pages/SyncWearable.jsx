@@ -72,6 +72,11 @@ export default function SyncWearable() {
   const [syncProgress, setSyncProgress] = useState(0)
   const [pairedDeviceName, setPairedDeviceName] = useState('')
   const [flowError, setFlowError] = useState(null)
+  const [manualForm, setManualForm] = useState({
+    systolic: '',
+    diastolic: '',
+    heartRate: '',
+  })
   const [error, setError] = useState('')
 
   const connected = profile?.wearable_provider ?? ''
@@ -80,10 +85,14 @@ export default function SyncWearable() {
     [connected]
   )
 
-  const saveConnection = useCallback(async (providerName) => {
+  const saveConnection = useCallback(async (providerName, options = {}) => {
     setConnecting(providerName)
     setError('')
     try {
+      if (options.importMockVitals) {
+        await importMockVitals(user.id)
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({ wearable_provider: providerName, updated_at: new Date().toISOString() })
@@ -120,7 +129,7 @@ export default function SyncWearable() {
     if (flowStep !== 'syncing' || syncProgress !== 100 || !flowProvider) return undefined
 
     const timer = window.setTimeout(() => {
-      saveConnection(flowProvider.name)
+      saveConnection(flowProvider.name, { importMockVitals: true })
     }, 420)
 
     return () => window.clearTimeout(timer)
@@ -132,11 +141,23 @@ export default function SyncWearable() {
     setPairedDeviceName('')
     setSyncProgress(0)
     if (provider.id === 'manual') {
-      saveConnection(provider.name)
+      setFlowProvider(provider)
+      setFlowStep('manual')
       return
     }
     setFlowProvider(provider)
     setFlowStep('permissions')
+  }
+
+  const useManualFallback = () => {
+    const manualProvider = PROVIDERS.find((provider) => provider.id === 'manual')
+    if (!manualProvider) return
+    setFlowProvider(null)
+    setFlowStep('permissions')
+    setFlowError(null)
+    setSyncProgress(0)
+    setFlowProvider(manualProvider)
+    setFlowStep('manual')
   }
 
   const closeFlow = () => {
@@ -145,6 +166,7 @@ export default function SyncWearable() {
     setSyncProgress(0)
     setPairedDeviceName('')
     setFlowError(null)
+    setManualForm({ systolic: '', diastolic: '', heartRate: '' })
   }
 
   const authorizeFlow = async () => {
@@ -160,6 +182,45 @@ export default function SyncWearable() {
     } catch (err) {
       setFlowError(formatBluetoothError(err, flowProvider))
       setFlowStep('error')
+    }
+  }
+
+  const updateManualForm = (field, value) => {
+    setManualForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const saveManualEntry = async () => {
+    setConnecting('Manual entry')
+    setError('')
+    setFlowError(null)
+
+    try {
+      const { error: vitalError } = await supabase.from('vitals').insert({
+        user_id: user.id,
+        systolic: Number(manualForm.systolic),
+        diastolic: Number(manualForm.diastolic),
+        heart_rate: Number(manualForm.heartRate),
+        recorded_at: new Date().toISOString(),
+      })
+      if (vitalError) throw vitalError
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ wearable_provider: 'Manual entry', updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (profileError) throw profileError
+
+      setProfile((p) => ({ ...p, wearable_provider: 'Manual entry' }))
+      setFlowStep('manual-done')
+    } catch (err) {
+      setFlowError(new BluetoothConnectError(
+        'manual-save-failed',
+        'Could not save manual reading',
+        err.message ?? 'Please check the values and try again.'
+      ))
+      setFlowStep('error')
+    } finally {
+      setConnecting('')
     }
   }
 
@@ -270,9 +331,13 @@ export default function SyncWearable() {
           progress={syncProgress}
           deviceName={pairedDeviceName}
           error={flowError}
+          manualForm={manualForm}
           connecting={connecting === flowProvider.name}
+          onManualChange={updateManualForm}
+          onSaveManual={saveManualEntry}
           onAuthorize={authorizeFlow}
           onRetry={authorizeFlow}
+          onUseManual={useManualFallback}
           onClose={closeFlow}
         />
       )}
@@ -299,9 +364,17 @@ async function requestBluetoothDevice(provider) {
   }
 
   const device = await navigator.bluetooth.requestDevice({
-    filters: bluetooth.namePrefixes.map((namePrefix) => ({ namePrefix })),
+    acceptAllDevices: true,
     optionalServices: bluetooth.services,
   })
+
+  if (!isSupportedDeviceName(device.name, bluetooth.namePrefixes)) {
+    throw new BluetoothConnectError(
+      'unsupported-device',
+      `${device.name || 'Selected device'} is not supported for ${provider.name}.`,
+      `You selected ${device.name || 'a Bluetooth device'}, but this flow expects ${provider.name}. Choose a supported wearable or use manual entry.`
+    )
+  }
 
   if (!device.gatt) {
     throw new BluetoothConnectError(
@@ -313,6 +386,13 @@ async function requestBluetoothDevice(provider) {
 
   await device.gatt.connect()
   return device
+}
+
+function isSupportedDeviceName(deviceName = '', supportedPrefixes = []) {
+  if (!deviceName) return false
+  return supportedPrefixes.some((prefix) => (
+    deviceName.toLowerCase().startsWith(prefix.toLowerCase())
+  ))
 }
 
 function formatBluetoothError(err, provider) {
@@ -365,11 +445,45 @@ class BluetoothConnectError extends Error {
   }
 }
 
-function ConnectFlow({ provider, step, progress, deviceName, error, connecting, onAuthorize, onRetry, onClose }) {
+async function importMockVitals(userId) {
+  const now = new Date()
+  const systolic = 112 + Math.floor(Math.random() * 12)
+  const diastolic = 70 + Math.floor(Math.random() * 8)
+  const heartRate = 76 + Math.floor(Math.random() * 12)
+
+  const { error } = await supabase.from('vitals').insert({
+    user_id: userId,
+    systolic,
+    diastolic,
+    heart_rate: heartRate,
+    recorded_at: now.toISOString(),
+  })
+
+  if (error) throw error
+}
+
+function ConnectFlow({
+  provider,
+  step,
+  progress,
+  deviceName,
+  error,
+  manualForm,
+  connecting,
+  onManualChange,
+  onSaveManual,
+  onAuthorize,
+  onRetry,
+  onUseManual,
+  onClose,
+}) {
   const isDone = step === 'done'
+  const isManual = step === 'manual'
+  const isManualDone = step === 'manual-done'
   const isPairing = step === 'pairing'
   const isSyncing = step === 'syncing'
   const isBusy = isPairing || isSyncing || connecting
+  const isUnsupportedDevice = error?.code === 'unsupported-device'
 
   return (
     <div className="sw-flow" role="dialog" aria-modal="true" aria-labelledby="sw-flow-title">
@@ -387,16 +501,24 @@ function ConnectFlow({ provider, step, progress, deviceName, error, connecting, 
         <div className="sw-flow__brand">
           <span className="sw-flow__device" aria-hidden><ProviderIcon name={provider.glyph} /></span>
           <div>
-            <p className="sw-flow__kicker">{isDone ? 'CONNECTED' : step === 'error' ? 'CONNECTION ISSUE' : 'CONNECT DEVICE'}</p>
+            <p className="sw-flow__kicker">
+              {isDone || isManualDone ? 'CONNECTED' : step === 'error' ? 'CONNECTION ISSUE' : isManual ? 'MANUAL ENTRY' : 'CONNECT DEVICE'}
+            </p>
             <h2 id="sw-flow-title">
-              {isDone ? `${provider.name} is ready` : step === 'error' ? `Could not connect ${provider.name}` : `Connect ${provider.name}`}
+              {isDone || isManualDone
+                ? `${provider.name} is ready`
+                : step === 'error'
+                  ? `Could not connect ${provider.name}`
+                  : isManual
+                    ? 'Add a manual reading'
+                    : `Connect ${provider.name}`}
             </h2>
           </div>
         </div>
 
         <div className="sw-flow__steps" aria-label="Connection progress">
           {['permissions', 'pairing', 'syncing', 'done'].map((item, index) => {
-            const activeIndex = isDone ? 3 : isSyncing ? 2 : isPairing ? 1 : 0
+            const activeIndex = isDone || isManualDone ? 3 : isSyncing ? 2 : isPairing ? 1 : 0
             return (
               <span
                 key={item}
@@ -439,6 +561,16 @@ function ConnectFlow({ provider, step, progress, deviceName, error, connecting, 
           </>
         )}
 
+        {isManual && (
+          <ManualEntryForm
+            form={manualForm}
+            saving={connecting}
+            onChange={onManualChange}
+            onSave={onSaveManual}
+            onCancel={onClose}
+          />
+        )}
+
         {isPairing && (
           <div className="sw-flow__syncing">
             <div className="sw-flow__pulse" aria-hidden><ProviderIcon name={provider.glyph} /></div>
@@ -468,24 +600,90 @@ function ConnectFlow({ provider, step, progress, deviceName, error, connecting, 
             <p className="sw-flow__error-copy">
               {error?.message || 'Check Bluetooth permissions and try again.'}
             </p>
-            <div className="sw-flow__actions sw-flow__actions--center">
-              <button className="sw-flow__secondary" onClick={onClose}>Close</button>
+            <div className="sw-flow__browser-note">
+              <span aria-hidden><ProviderIcon name="shield" /></span>
+              <p>
+                {isUnsupportedDevice
+                  ? 'This Bluetooth device was found, but it does not match the wearable type you selected.'
+                  : 'Direct Bluetooth pairing works best in Chrome or Edge on desktop. If the device is not discoverable, manual entry keeps your vitals flowing.'}
+              </p>
+            </div>
+            <div className="sw-flow__actions sw-flow__actions--stacked">
+              <button className="sw-flow__primary" onClick={onUseManual}>Use manual entry</button>
               <button className="sw-flow__primary" onClick={onRetry}>Try again</button>
+              <button className="sw-flow__secondary" onClick={onClose}>Choose another device</button>
             </div>
           </div>
         )}
 
-        {isDone && (
+        {(isDone || isManualDone) && (
           <div className="sw-flow__done">
             <span className="sw-flow__done-mark" aria-hidden>✓</span>
-            <p className="sw-flow__done-title">Connection saved</p>
+            <p className="sw-flow__done-title">{isManualDone ? 'Manual reading saved' : 'Connection saved'}</p>
             <p className="sw-flow__done-copy">
-              {deviceName || provider.name} will now appear as your connected wearable. New vitals will show on the dashboard when available.
+              {isManualDone
+                ? 'Your latest blood pressure and heart rate are ready for the dashboard.'
+                : `${deviceName || provider.name} is connected through ${provider.name}. A fresh sample vital was imported for your dashboard.`}
             </p>
             <button className="sw-flow__primary" onClick={onClose}>Done</button>
           </div>
         )}
       </section>
+    </div>
+  )
+}
+
+function ManualEntryForm({ form, saving, onChange, onSave, onCancel }) {
+  const canSave = Number(form.systolic) > 0 && Number(form.diastolic) > 0 && Number(form.heartRate) > 0
+
+  return (
+    <div className="sw-manual">
+      <p className="sw-flow__lede">
+        Enter the reading from your cuff or wearable. This will update today&apos;s vitals on your dashboard.
+      </p>
+
+      <div className="sw-manual__grid">
+        <label className="sw-manual__field">
+          <span>Systolic</span>
+          <input
+            type="number"
+            min="70"
+            max="220"
+            placeholder="118"
+            value={form.systolic}
+            onChange={(e) => onChange('systolic', e.target.value)}
+          />
+        </label>
+        <label className="sw-manual__field">
+          <span>Diastolic</span>
+          <input
+            type="number"
+            min="40"
+            max="140"
+            placeholder="76"
+            value={form.diastolic}
+            onChange={(e) => onChange('diastolic', e.target.value)}
+          />
+        </label>
+        <label className="sw-manual__field">
+          <span>Heart rate</span>
+          <input
+            type="number"
+            min="35"
+            max="220"
+            placeholder="82"
+            value={form.heartRate}
+            onChange={(e) => onChange('heartRate', e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="sw-flow__actions">
+        <button className="sw-flow__secondary" onClick={onCancel}>Cancel</button>
+        <button className="sw-flow__primary" onClick={onSave} disabled={!canSave || saving}>
+          {saving ? 'Saving...' : 'Save reading'}
+        </button>
+      </div>
     </div>
   )
 }

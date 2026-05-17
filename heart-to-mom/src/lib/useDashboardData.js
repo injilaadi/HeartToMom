@@ -16,6 +16,7 @@ export function useDashboardData() {
     appointments: [],
     latestVital: null,
     latestCheckIn: null,
+    latestAssessment: null,
     loading: true,
   })
 
@@ -27,7 +28,7 @@ export function useDashboardData() {
     async function fetchAll() {
       const safe = (p) => p.then((r) => r).catch(() => ({ data: null, error: null }))
 
-      const [profileRes, apptRes, vitalRes, checkInRes] = await Promise.all([
+      const [profileRes, apptRes, vitalRes, checkInRes, assessmentRes] = await Promise.all([
         safe(
           supabase
             .from('profiles')
@@ -61,6 +62,15 @@ export function useDashboardData() {
             .limit(1)
             .maybeSingle()
         ),
+        safe(
+          supabase
+            .from('risk_assessments')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        ),
       ])
 
       if (cancelled) return
@@ -70,6 +80,7 @@ export function useDashboardData() {
         appointments: apptRes.data ?? [],
         latestVital: vitalRes.data ?? null,
         latestCheckIn: checkInRes.data ?? null,
+        latestAssessment: assessmentRes.data ?? null,
         loading: false,
       })
     }
