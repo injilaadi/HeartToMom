@@ -37,6 +37,10 @@
   text-align: center;
 }
 
+.th__provider-export > div:first-child {
+  padding-top: 16px;
+}
+
 .th__provider-copy {
   margin: 10px auto 0;
   color: var(--ink);
