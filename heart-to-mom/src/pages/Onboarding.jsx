@@ -144,12 +144,21 @@ export default function Onboarding() {
         // failed (e.g. schema not yet migrated).
         try {
           localStorage.setItem(`htm:onboardingDone:${user.id}`, '1')
+          localStorage.removeItem(`htm:profilePromptEnabled:${user.id}`)
         } catch {
           // localStorage may be blocked; the database profile remains canonical.
         }
 
         const result = await triggerRiskAssessment('onboarding')
         if (!result.ok) console.warn('Initial risk assessment failed:', result.error)
+      } else {
+        // User chose "Save & finish later" — arm the dashboard reminder modal
+        // so it nudges them next time they're on /home.
+        try {
+          localStorage.setItem(`htm:profilePromptEnabled:${user.id}`, '1')
+        } catch {
+          // localStorage may be blocked; fall back to no reminder.
+        }
       }
 
       navigate('/home')
