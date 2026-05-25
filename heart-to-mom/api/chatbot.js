@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { retrieveContext } from './_lib/rag.js'
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 
@@ -38,7 +39,23 @@ export default async function handler(req, res) {
       ? `\n\nThe user just mentioned these symptoms in their message: ${detectedSymptoms.join(', ')}. Briefly acknowledge them, indicate which (if any) warrant urgent care versus normal pregnancy variation, and end with one sentence inviting the user to log them on their daily check-in so their risk score reflects this.`
       : ''
 
-    const systemPrompt = `${SYSTEM_PROMPT_BASE}${reminderClause}${symptomClause}`
+    // RAG: ground the answer in the vetted knowledge base. Embed the latest user message,
+    // retrieve the most relevant passages, and inject them into the system prompt.
+    // Fails open — if retrieval errors, the assistant still answers from its own knowledge.
+    let contextClause = ''
+    try {
+      const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')
+      if (lastUserMessage?.content) {
+        const { context } = await retrieveContext(lastUserMessage.content, { apiKey: GEMINI_API_KEY })
+        if (context) {
+          contextClause = `\n\nGround your answer in the following reference material from HeartToMom's vetted maternal-health knowledge base. Prefer it over your own assumptions. If it doesn't cover the question, answer what you safely can from general knowledge and suggest confirming with their provider. Do not mention that you were given reference material or quote these headings verbatim.\n\n<reference>\n${context}\n</reference>`
+        }
+      }
+    } catch (err) {
+      console.error('RAG retrieval failed (continuing without context):', err.message ?? err)
+    }
+
+    const systemPrompt = `${SYSTEM_PROMPT_BASE}${reminderClause}${symptomClause}${contextClause}`
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     const model = genAI.getGenerativeModel({
